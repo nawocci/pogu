@@ -35,6 +35,11 @@ test('Routing Model: /monitoring routes to monitoring', () => {
   assert.deepEqual(parseRoute('/monitoring/'), { name: 'monitoring' });
 });
 
+test('Routing Model: /configurations routes to configurations', () => {
+  assert.deepEqual(parseRoute('/configurations'), { name: 'configurations' });
+  assert.deepEqual(parseRoute('/configurations/'), { name: 'configurations' });
+});
+
 test('Routing Constraints: no global /models route', () => {
   assert.deepEqual(parseRoute('/models'), { name: 'not-found', path: '/models' });
   assert.deepEqual(parseRoute('/models/123'), { name: 'not-found', path: '/models/123' });

@@ -5,6 +5,7 @@ export type Route =
   | { name: 'groups' }
   | { name: 'group-detail'; groupId: number }
   | { name: 'monitoring' }
+  | { name: 'configurations' }
   | { name: 'login' }
   | { name: 'not-found'; path: string };
 
@@ -59,6 +60,10 @@ export function parseRoute(pathname: string): Route {
 
   if (p === '/monitoring') {
     return { name: 'monitoring' };
+  }
+
+  if (p === '/configurations') {
+    return { name: 'configurations' };
   }
 
   return { name: 'not-found', path: pathname };

@@ -16,6 +16,7 @@
   import GroupDetail from './lib/pages/GroupDetail.svelte';
   import Connections from './lib/pages/Connections.svelte';
   import Monitoring from './lib/pages/Monitoring.svelte';
+  import Configurations from './lib/pages/Configurations.svelte';
   import NotFound from './lib/pages/NotFound.svelte';
 
   let ready = $state(false);
@@ -111,6 +112,8 @@
                   <GroupDetail groupId={router.route.groupId} />
                 {:else if router.route.name === 'monitoring'}
                   <Monitoring />
+                {:else if router.route.name === 'configurations'}
+                  <Configurations />
                 {:else}
                   <NotFound path={router.path} />
                 {/if}

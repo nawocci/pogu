@@ -21,6 +21,7 @@
   const isProviders = $derived(router.route.name === 'providers' || router.route.name === 'provider-detail');
   const isGroups = $derived(router.route.name === 'groups' || router.route.name === 'group-detail');
   const isMonitoring = $derived(router.route.name === 'monitoring');
+  const isConfigurations = $derived(router.route.name === 'configurations');
 
   async function signOut() {
     try {
@@ -103,6 +104,17 @@
         <span class="flex min-w-0 items-center gap-2.5">
           <span class="grid size-5 shrink-0 place-items-center"><Icon name="monitoring" size={18} /></span>
           {#if expanded}<span class="truncate" in:quickFade={{ duration: 160 }}>Monitoring</span>{/if}
+        </span>
+      </a>
+      <a
+        href="/configurations"
+        class="nav-item {isConfigurations ? 'nav-item-active' : ''}"
+        aria-current={isConfigurations ? 'page' : undefined}
+        title="Configurations"
+      >
+        <span class="flex min-w-0 items-center gap-2.5">
+          <span class="grid size-5 shrink-0 place-items-center"><Icon name="configurations" size={18} /></span>
+          {#if expanded}<span class="truncate" in:quickFade={{ duration: 160 }}>Configurations</span>{/if}
         </span>
       </a>
     </div>

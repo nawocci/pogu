@@ -19,6 +19,7 @@ test('SPA dist bundle verification', () => {
   assert.ok(jsContent.includes('/providers'), 'Bundle contains /providers route');
   assert.ok(jsContent.includes('/groups'), 'Bundle contains /groups route');
   assert.ok(jsContent.includes('/monitoring'), 'Bundle contains /monitoring route');
+  assert.ok(jsContent.includes('/configurations'), 'Bundle contains /configurations route');
   assert.ok(jsContent.includes('/connections'), 'Bundle contains /connections route');
   assert.ok(jsContent.includes('/login'), 'Bundle contains /login route');
   assert.ok(jsContent.includes('Page not found'), 'Bundle contains Page not found');

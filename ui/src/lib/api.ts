@@ -277,6 +277,11 @@ export interface CreatedProviderKeyResponse {
   secret: string;
 }
 
+export interface GlobalPrompt {
+  system_prompt: string;
+  enabled: boolean;
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -327,6 +332,11 @@ export const api = {
     }),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   me: () => request<{ authenticated: boolean }>('/api/auth/me'),
+  changePassword: (current_password: string, new_password: string) =>
+    request<{ changed: boolean }>('/api/auth/password', {
+      method: 'POST',
+      body: JSON.stringify({ current_password, new_password }),
+    }),
   providers: () => request<Provider[]>('/api/providers'),
   getProvider: (id: number) => request<Provider>(`/api/providers/${id}`),
   createProvider: (input: ProviderInput) =>
@@ -409,6 +419,10 @@ export const api = {
   createKey: (name: string) =>
     request<CreatedKeyResponse>('/api/keys', { method: 'POST', body: JSON.stringify({ name }) }),
   revokeKey: (id: number) => request<void>(`/api/keys/${id}/revoke`, { method: 'POST' }),
+
+  globalPrompt: () => request<GlobalPrompt>('/api/settings/prompt'),
+  updateGlobalPrompt: (input: GlobalPrompt) =>
+    request<GlobalPrompt>('/api/settings/prompt', { method: 'PUT', body: JSON.stringify(input) }),
 
   monitoringSummary: (f: MonitorFilters) =>
     request<SummaryResult>(`/api/monitoring/summary?${monitorQuery(f)}`),
