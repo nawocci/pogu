@@ -79,6 +79,14 @@ func (s *Service) SyncOpenCodeModels(ctx context.Context) (OpenCodeSyncSummary, 
 	}
 	summary.Free = len(want)
 
+	if err := s.saveDocsCache(docs); err != nil {
+		return summary, err
+	}
+	return s.reconcileCatalog(ctx, p, want, summary)
+}
+
+func (s *Service) reconcileCatalog(ctx context.Context, p Provider, want map[string]string, summary OpenCodeSyncSummary) (OpenCodeSyncSummary, error) {
+
 	tx, err := s.Store.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return summary, err

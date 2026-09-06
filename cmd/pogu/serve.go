@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -60,7 +61,7 @@ func initCommand(dataDir string, args []string) error {
 }
 
 func syncOpenCodeLoop(ctx context.Context, svc *service.Service, logger *slog.Logger) {
-	ticker := time.NewTicker(30 * time.Minute)
+	ticker := time.NewTicker(7 * 24 * time.Hour)
 	defer ticker.Stop()
 	syncOnce := func() {
 		p, err := svc.GetBuiltinProvider(ctx)
@@ -73,7 +74,7 @@ func syncOpenCodeLoop(ctx context.Context, svc *service.Service, logger *slog.Lo
 		}
 		syncCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 		defer cancel()
-		summary, err := svc.SyncOpenCodeModels(syncCtx)
+		summary, err := svc.AutoSyncOpenCodeModels(syncCtx)
 		if err != nil {
 			logger.Warn("opencode catalog sync failed", "error", err.Error())
 			return
@@ -109,6 +110,10 @@ func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service,
 		return config.Config{}, nil, nil, err
 	}
 	svc := service.New(st, key)
+	if docsURL := os.Getenv("POGU_OPENCODE_DOCS_URL"); docsURL != "" {
+		svc.OpenCodeDocsURL = docsURL
+	}
+	svc.OpenCodeDocsCacheFile = filepath.Join(cfg.DataDir, service.OpenCodeDocsCacheFile)
 	if err := svc.EnsureBuiltin(context.Background()); err != nil {
 		_ = st.Close()
 		return config.Config{}, nil, nil, err

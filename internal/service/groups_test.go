@@ -7,7 +7,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/nawocci/pogu/internal/crypto"
 	"github.com/nawocci/pogu/internal/store"
@@ -427,5 +429,75 @@ func TestSyncKeepsOperatorPin(t *testing.T) {
 	}
 	if pinned.Scheme != "openai" {
 		t.Fatalf("operator pin overwritten: %+v", pinned)
+	}
+}
+
+func TestAutoSyncUsesFreshCache(t *testing.T) {
+	s, ctx := testService(t)
+	var docsHits int
+	catalogSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]string{{"id": "chat-free"}}})
+	}))
+	t.Cleanup(catalogSrv.Close)
+	docsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		docsHits++
+		_, _ = io.WriteString(w, syncDocsFixture)
+	}))
+	t.Cleanup(docsSrv.Close)
+	s.OpenCodeCatalogURL = catalogSrv.URL
+	s.OpenCodeDocsURL = docsSrv.URL
+	s.OpenCodeDocsCacheFile = t.TempDir() + "/cache.json"
+	if err := s.EnsureBuiltin(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SyncOpenCodeModels(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if docsHits != 1 {
+		t.Fatalf("manual sync docs hits = %d", docsHits)
+	}
+	if _, err := os.Stat(s.OpenCodeDocsCacheFile); err != nil {
+		t.Fatalf("cache not written: %v", err)
+	}
+	if _, err := s.AutoSyncOpenCodeModels(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if docsHits != 1 {
+		t.Fatalf("fresh cache must skip docs fetch, hits = %d", docsHits)
+	}
+	got := builtinModelSchemes(t, s, ctx)
+	if _, ok := got["chat-free"]; !ok {
+		t.Fatalf("models = %+v", got)
+	}
+}
+
+func TestAutoSyncRefetchesStaleCache(t *testing.T) {
+	s, ctx := testService(t)
+	var docsHits int
+	catalogSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": []map[string]string{{"id": "chat-free"}}})
+	}))
+	t.Cleanup(catalogSrv.Close)
+	docsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		docsHits++
+		_, _ = io.WriteString(w, syncDocsFixture)
+	}))
+	t.Cleanup(docsSrv.Close)
+	s.OpenCodeCatalogURL = catalogSrv.URL
+	s.OpenCodeDocsURL = docsSrv.URL
+	cachePath := t.TempDir() + "/cache.json"
+	s.OpenCodeDocsCacheFile = cachePath
+	stale, _ := json.Marshal(docsCacheFile{FetchedAt: time.Now().UTC().Add(-8 * 24 * time.Hour), Endpoints: map[string]string{}})
+	if err := os.WriteFile(cachePath, stale, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.EnsureBuiltin(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AutoSyncOpenCodeModels(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if docsHits != 1 {
+		t.Fatalf("stale cache must refetch docs, hits = %d", docsHits)
 	}
 }

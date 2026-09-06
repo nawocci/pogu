@@ -16,6 +16,8 @@ type Service struct {
 	OpenCodeCatalogURL string
 	OpenCodeDocsURL    string
 
+	OpenCodeDocsCacheFile string
+
 	rrMu      sync.Mutex
 	rrCursors map[string]uint64
 }
