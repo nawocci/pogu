@@ -3,7 +3,10 @@ package provider
 import (
 	"encoding/json"
 	"strings"
+	"time"
 )
+
+func nowUnix() int64 { return time.Now().Unix() }
 
 type chatRequest struct {
 	Model               string           `json:"model"`
@@ -15,7 +18,12 @@ type chatRequest struct {
 	MaxTokens           *int             `json:"max_tokens"`
 	MaxCompletionTokens *int             `json:"max_completion_tokens"`
 	MaxOutputTokens     *int             `json:"max_output_tokens"`
+	ReasoningEffort     *string          `json:"reasoning_effort"`
+	Reasoning           any              `json:"reasoning"`
+	ServiceTier         *string          `json:"service_tier"`
+	ResponseFormat      any              `json:"response_format"`
 	Stop                any              `json:"stop"`
+	Input               any              `json:"input"`
 }
 
 func stringOf(v any) string {

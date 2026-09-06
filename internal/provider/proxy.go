@@ -69,6 +69,8 @@ func writeFrames(w http.ResponseWriter, flusher http.Flusher, collector *SSEUsag
 
 func UpstreamPathForScheme(scheme string) string {
 	switch scheme {
+	case string(service.SchemeOpenAIResponses):
+		return ResponsesUpstreamPath
 	case string(service.SchemeAnthropic):
 		return AnthropicUpstreamPath
 	default:

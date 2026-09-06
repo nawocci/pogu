@@ -87,10 +87,30 @@ func (c *Client) NewRequest(ctx context.Context, p service.Provider, secret, pat
 	} else {
 		req.Header.Set("Authorization", "Bearer "+secret)
 	}
+	if isOpenCodeUpstream(p) {
+		setOpenCodeHeaders(req)
+	}
 	if stream {
 		req.Header.Set("Accept", "text/event-stream")
 	}
 	return req, nil
+}
+
+func isOpenCodeUpstream(p service.Provider) bool {
+	u, err := url.Parse(p.BaseURL)
+	if err != nil {
+		return false
+	}
+	host := strings.ToLower(u.Hostname())
+	return host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai")
+}
+
+func setOpenCodeHeaders(req *http.Request) {
+	req.Header.Set("User-Agent", "opencode")
+	req.Header.Set("x-opencode-client", "desktop")
+	req.Header.Set("x-opencode-project", "global")
+	req.Header.Set("x-opencode-session", "ses_"+randomHexID())
+	req.Header.Set("x-opencode-request", "msg_"+randomHexID())
 }
 
 func randomHexID() string {
