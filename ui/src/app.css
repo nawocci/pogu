@@ -1,0 +1,700 @@
+@import 'tailwindcss';
+
+/* class-based variant for the collapsible sidebar (targets the workspace grid) */
+@custom-variant rail-collapsed (&.rail-collapsed);
+
+/* pogu tokens. :root / [data-theme] own raw values; @theme inline maps
+   them to utilities (bg-ink, text-paper…) resolved at runtime, so both
+   themes share one class set. Custom CSS: scrollbars, motion, base type. */
+
+:root {
+  /* surfaces */
+  --bg: #0a0e14; /* page background */
+  --ink: #121821; /* primary workspace surface */
+  --rail-bg: #0e131a;
+  --raised: #1a2230; /* cards, modals, elevated UI */
+  --raised-2: #212a3a;
+  --well: #0e141c; /* recessed panels (code outputs, pickers) */
+  --hover: #242f41; /* interactive hover state */
+
+  /* lines & dividers */
+  --line: #2d3949; /* medium contrast borders */
+  --line-soft: #212b3a;
+
+  /* text hierarchy */
+  --paper: #dfe8f2;
+  --primary: #c9d6e4;
+  --secondary: #93a5ba;
+  --tertiary: #7b8da4;
+  --muted: #5d6f88;
+
+  /* accent — pogu blue */
+  --accent: #5b8def;
+  --accent-press: #4a7ce0;
+  --accent-hover: #7aa7f4;
+  --accent-on: #0c1a33; /* text on blue fills */
+  --accent-dim: rgba(91, 141, 239, 0.14); /* blue-tinted backgrounds */
+  --accent-soft: rgba(91, 141, 239, 0.35); /* blue borders */
+  --accent-glow: rgba(91, 141, 239, 0.3); /* glow effects */
+  --accent-ink: #8fb3f5; /* readable blue for accent text */
+
+  /* status */
+  --success: #3fd2c7;
+  --success-soft: rgba(63, 210, 199, 0.14);
+  --success-muted: #4fd8ce;
+
+  --warning: #ffb13d;
+  --warning-soft: rgba(255, 177, 61, 0.16);
+  --warning-muted: #ffb84f;
+  --error: #ff5c5c;
+  --error-soft: rgba(255, 92, 92, 0.14);
+  --error-muted: #ff7070;
+
+  /* depth */
+  --backdrop: rgba(6, 10, 16, 0.8);
+  --sh-workspace: 0 24px 64px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --sh-pop: 0 24px 80px rgba(0, 0, 0, 0.6);
+  --sh-toast: 0 12px 32px rgba(0, 0, 0, 0.45);
+
+  color-scheme: dark;
+
+  /* fonts */
+  --heading: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --body: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --r: 3px;
+  --rail-w: 184px;
+  --rail-w-compact: 64px;
+}
+
+[data-theme='light'] {
+  /* surfaces */
+  --bg: #e4ebf3;
+  --ink: #ffffff;
+  --rail-bg: #eef2f8;
+  --raised: #ffffff;
+  --raised-2: #f2f6fb; /* selected/toast surfaces */
+  --well: #edf2f8;
+  --hover: #e3ebf4;
+
+  /* lines & dividers */
+  --line: #b7c5d6;
+  --line-soft: #d4dde9;
+
+  /* text hierarchy */
+  --paper: #131c28;
+  --primary: #1f2b3a; /* body/UI text */
+  --secondary: #42536a;
+  --tertiary: #55677d;
+  --muted: #7a8a9f;
+
+  /* accent — pogu blue */
+  --accent: #3d6fd9;
+  --accent-press: #3263c6;
+  --accent-hover: #4d7ee2;
+  --accent-on: #ffffff;
+  --accent-ink: #2c5ec4; /* readable blue for accent text */
+  --accent-dim: rgba(61, 111, 217, 0.1);
+  --accent-soft: rgba(61, 111, 217, 0.38);
+  --accent-glow: rgba(61, 111, 217, 0.26);
+
+  /* status */
+  --success: #0e756a;
+  --success-soft: rgba(14, 117, 106, 0.12);
+  --success-muted: #0e756a;
+
+  --warning: #8a4d08;
+  --warning-soft: rgba(138, 77, 8, 0.12);
+  --warning-muted: #8a4d08;
+
+  --error: #bb2d2d;
+  --error-soft: rgba(187, 45, 45, 0.11);
+  --error-muted: #bb2d2d;
+
+  /* depth */
+  --backdrop: rgba(19, 28, 40, 0.32);
+  --sh-workspace: 0 24px 64px rgba(19, 28, 40, 0.16), 0 3px 10px rgba(19, 28, 40, 0.08);
+  --sh-pop: 0 24px 80px rgba(19, 28, 40, 0.22);
+  --sh-toast: 0 12px 32px rgba(19, 28, 40, 0.16);
+
+  color-scheme: light;
+}
+
+@theme inline {
+  /* surfaces */
+  --color-bg: var(--bg);
+  --color-rail: var(--rail-bg);
+  --color-ink: var(--ink);
+  --color-raised: var(--raised);
+  --color-raised-2: var(--raised-2);
+  --color-well: var(--well);
+  --color-hover: var(--hover);
+
+  /* lines & dividers */
+  --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
+
+  /* text hierarchy */
+  --color-paper: var(--paper);
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-tertiary: var(--tertiary);
+  --color-muted: var(--muted);
+
+  /* accent + status */
+  --color-accent: var(--accent);
+  --color-accent-press: var(--accent-press);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-on: var(--accent-on);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-glow: var(--accent-glow);
+  --color-accent-ink: var(--accent-ink);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-success-muted: var(--success-muted);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-muted: var(--warning-muted);
+  --color-error: var(--error);
+  --color-error-soft: var(--error-soft);
+  --color-error-muted: var(--error-muted);
+  --color-backdrop: var(--backdrop);
+
+  /* type */
+  --font-heading: var(--heading);
+  --font-sans: var(--body);
+  --font-mono: var(--mono);
+
+  /* shape & depth */
+  --radius-sm: var(--r);
+  --shadow-workspace: var(--sh-workspace);
+  --shadow-pop: var(--sh-pop);
+  --shadow-toast: var(--sh-toast);
+
+  /* layout */
+  --breakpoint-compact: 50rem; /* workspace collapses below 800px */
+  --breakpoint-wide: 60rem; /* provider card figures hide below 960px */
+
+  /* motion */
+  --animate-pulse-dot: pulse-dot 1.2s ease-in-out infinite;
+  --animate-ring-pulse: ring-pulse 1.5s ease-out infinite;
+  --animate-spin: spin 0.8s linear infinite;
+  --animate-sweep: sweep 1.4s ease-in-out infinite;
+  /* theme switch crossfade duration (colors only, layout stays instant) */
+  --theme-fade: 240ms;
+}
+
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* breathing ring for in-flight work: a soft blue halo expanding from the
+   status dot — perceptible at a glance, quiet up close */
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--accent-glow);
+  }
+  70% {
+    box-shadow: 0 0 0 7px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Entrance reveals (see reveal() in motion.svelte.ts). The from-state
+   lives in the keyframes and `both` covers the delay window, so the
+   element's very first painted frame is already hidden. */
+@keyframes pogu-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes pogu-blip {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.98);
+  }
+}
+
+@keyframes pogu-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.9);
+  }
+}
+
+.rv-rise {
+  animation: pogu-rise 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--rvd, 0ms);
+}
+
+.rv-blip {
+  animation: pogu-blip 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--rvd, 0ms);
+}
+
+.rv-pop {
+  animation: pogu-pop 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--rvd, 0ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rv-rise,
+  .rv-blip,
+  .rv-pop {
+    animation-duration: 0.01ms;
+    animation-delay: 0ms;
+  }
+}
+
+/* One-shot blip entrance for conditionally mounted content outside the
+   page choreography (form errors appearing inside modals). Reuses the
+   pogu-blip keyframes; the global reduced-motion rule covers it. */
+.enter-blip {
+  animation: pogu-blip 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+  }
+
+  /* theme switch crossfade: surfaces, lines, and text ease to their new
+     token values instead of snapping. Colors only — layout stays instant. */
+  body,
+  body *,
+  body *::before,
+  body *::after {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: var(--theme-fade);
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Interaction feedback must stay snappy: restore near-instant component
+     transitions where hover/active states matter. */
+  .btn,
+  .linkish,
+  .nav-item,
+  input,
+  textarea,
+  select {
+    transition-duration: 120ms;
+  }
+
+  body {
+    color: var(--primary);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--heading);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0;
+    color: var(--paper);
+  }
+
+  h1 {
+    font-size: 44px;
+    line-height: 1.1;
+  }
+
+  h2 {
+    font-size: 22px;
+    line-height: 1.25;
+  }
+
+  h3 {
+    font-size: 18px;
+    line-height: 1.3;
+  }
+
+  a {
+    color: var(--accent-ink);
+    text-decoration: none;
+  }
+
+  a:hover {
+    text-decoration: underline;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: wait;
+  }
+
+  /* Focus ring as a two-tone box-shadow: an offset gap in the page color
+     keeps the ring legible even on accent fills. Outline-color is unusable
+     here — Chromium drops non-important :focus-visible outline-color
+     declarations (they render as currentcolor), so the ring must not rely
+     on it. Form fields override this below with their own focus treatment;
+     .nav-item-active recomposes to keep its inset bar. */
+  :focus-visible {
+    outline: 2px solid transparent;
+    border-radius: var(--r);
+    box-shadow:
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--accent-ink);
+  }
+
+  ::selection {
+    background: var(--accent);
+    color: var(--accent-on);
+  }
+
+  /* scrollbars */
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--line);
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--secondary);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* form controls */
+
+  input[type='text'],
+  input[type='number'],
+  input[type='url'],
+  input[type='password'],
+  textarea,
+  select {
+    width: 100%;
+    background: var(--well);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    color: var(--primary);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 12px;
+    transition: border-color 0.12s, box-shadow 0.12s;
+  }
+
+  select {
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    /* custom chevron with breathing room — the UA arrow sits on the border */
+    padding-right: 30px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 20 20' fill='none' stroke='%237b8da4' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 8 5 5 5-5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+  }
+
+  input[type='number'] {
+    font-family: var(--body);
+  }
+
+  input[type='checkbox'] {
+    width: auto;
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 110px;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    outline: none;
+    border-color: var(--accent-ink);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--muted);
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-sm border border-line bg-raised text-primary font-semibold text-[11px] tracking-[0.07em] uppercase transition-colors;
+  }
+
+  .btn:hover {
+    @apply bg-hover border-secondary;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .btn:active:not(:disabled) {
+      transform: scale(0.98);
+    }
+  }
+
+  .btn:disabled {
+    @apply opacity-45;
+  }
+
+  .btn-primary {
+    @apply bg-accent border-accent text-accent-on;
+  }
+
+  .btn-primary:hover {
+    @apply bg-accent-hover border-accent-hover text-accent-on;
+  }
+
+  .btn-danger {
+    @apply text-error-muted border-error-soft;
+  }
+
+  .btn-danger:hover {
+    @apply bg-error-soft border-error-muted text-error;
+  }
+
+  .btn-armed {
+    @apply bg-error-muted border-error-muted text-white;
+  }
+
+  .btn-sm {
+    @apply px-3 py-1 text-[10.5px] tracking-[0.07em];
+  }
+
+  /* small ghost button for card rows and inline actions */
+  .btn-ghost {
+    @apply rounded-sm border border-line px-[11px] py-1 font-mono text-[10px] font-medium tracking-[0.07em] whitespace-nowrap text-secondary uppercase transition-colors;
+  }
+
+  .btn-ghost:hover {
+    @apply border-secondary bg-hover text-paper;
+  }
+
+  .btn-ghost:disabled {
+    @apply opacity-45;
+  }
+
+  .btn-ghost-xs {
+    @apply px-1.5 py-0.5;
+  }
+
+  .btn-ghost-ok,
+  .btn-ghost-ok:hover {
+    @apply border-success-soft bg-success-soft text-success-muted;
+  }
+
+  .linkish {
+    @apply inline-block px-[9px] py-1 border border-transparent rounded-sm text-secondary text-[10px] font-semibold tracking-[0.07em] uppercase no-underline transition-colors;
+  }
+
+  .linkish:hover {
+    @apply text-paper bg-raised-2 border-line;
+  }
+
+  .linkish-del:hover {
+    @apply text-error-muted bg-error-soft border-error-soft;
+  }
+
+  .linkish:disabled {
+    @apply opacity-45;
+  }
+
+  /* wordmark chip: rounded accent rectangle carrying the POGU logotype.
+     Original pogu styling: bold dark-navy text on the accent fill.
+     Fixed h-8 matches .brand-mark-p so the rail brand row never changes
+     height between collapsed/expanded states. */
+  .brand-mark {
+    @apply inline-flex h-8 items-center justify-center rounded-md bg-accent px-3 font-heading text-[13px] font-bold tracking-[0.18em] text-accent-on;
+    padding-right: calc(0.75rem - 0.18em); /* optically balance the last letter's tracking */
+  }
+
+  /* collapsed-rail variant: the original square P logo */
+  .brand-mark-p {
+    @apply size-8 rounded-md p-0 text-[16px] font-black;
+    padding-right: 0;
+    letter-spacing: 0;
+  }
+
+  .field {
+    @apply block mb-4;
+  }
+
+  .field > span {
+    @apply block mb-1.5 text-[10.5px] font-semibold tracking-[0.07em] uppercase text-tertiary;
+  }
+
+  .hint {
+    @apply mt-1.5 text-xs text-tertiary;
+  }
+
+  .error-line {
+    @apply px-3 py-2.5 rounded-sm bg-error-soft text-error-muted font-mono text-[12.5px] [overflow-wrap:anywhere];
+  }
+
+  /* recessed surface */
+  .panel {
+    @apply bg-well border border-line rounded-sm;
+  }
+
+  /* entity list cards (providers, groups): overlay link covers the row,
+     interactive children sit above it */
+  .card-row {
+    @apply relative grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-4 rounded-sm border border-line border-l-2 border-l-accent-soft bg-raised py-4 pr-4 pl-5 transition-[border-color,box-shadow] hover:border-secondary hover:bg-raised-2 hover:ring-1 hover:ring-accent-soft max-wide:grid-cols-[minmax(0,1fr)_auto_auto] max-wide:gap-3;
+  }
+
+  .card-hit {
+    @apply absolute inset-0 z-[1] rounded-[inherit] no-underline;
+  }
+
+  .card-lift {
+    @apply relative z-[2] whitespace-nowrap;
+  }
+
+  /* dashed empty state shared by list pages */
+  .empty {
+    @apply flex flex-col items-center rounded-sm border border-dashed border-line px-5 py-12 text-center;
+  }
+
+  /* back link on detail pages */
+  .back-link {
+    @apply inline-block rounded-sm border border-transparent px-2.5 py-1.5 font-mono text-xs text-tertiary no-underline transition-colors hover:border-line hover:bg-raised-2 hover:text-accent-ink;
+  }
+
+  /* modal footer row; spacing from preceding fields comes from .field margins
+     or the parent grid gap, so no margin here */
+  .modal-actions {
+    @apply flex justify-end gap-2.5;
+  }
+
+  /* view navigation: entering and leaving pages share one grid cell so the
+     outgoing view can fade without collapsing layout */
+  .view-stack {
+    display: grid;
+  }
+
+  .view-stack > * {
+    grid-area: 1 / 1;
+  }
+
+  .sec-head {
+    @apply flex items-baseline justify-between mb-3.5 pb-2.5 border-b border-line-soft;
+  }
+
+  .table-data {
+    @apply w-full border-collapse text-[13.5px];
+  }
+
+  .table-data th {
+    @apply text-left align-middle px-2.5 py-2 font-mono font-semibold text-[10.5px] tracking-[0.07em] leading-none uppercase text-tertiary border-b border-line;
+  }
+
+  .table-data td {
+    @apply p-2.5 leading-[1.4] align-middle border-b border-line-soft;
+  }
+
+  .table-data tbody tr:hover td {
+    @apply bg-raised-2 border-line-soft;
+  }
+
+  /* active state: inset accent bar; flat underline on mobile */
+  .nav-item {
+    @apply flex items-center justify-between gap-2.5 px-3 py-[9px] rounded-sm text-tertiary font-medium text-[13.5px] no-underline transition-colors;
+  }
+
+  .nav-item:hover {
+    @apply text-primary bg-hover;
+  }
+
+  .nav-item-active {
+    @apply text-paper font-semibold bg-raised;
+    box-shadow: inset 2px 0 0 var(--accent), 0 0 0 1px var(--line-soft);
+  }
+
+  .nav-item-active:focus-visible {
+    box-shadow:
+      inset 2px 0 0 var(--accent),
+      inset 0 0 0 1px var(--line-soft),
+      0 0 0 2px var(--bg),
+      0 0 0 4px var(--accent-ink);
+  }
+
+  .nav-item-active .count {
+    @apply text-accent-ink bg-accent-dim;
+  }
+
+  @media (width < 50rem) {
+    .nav-item {
+      @apply px-2.5 py-1.5;
+    }
+
+    .nav-item-active {
+      box-shadow: inset 0 -2px 0 var(--accent);
+    }
+
+    .nav-item-active:focus-visible {
+      box-shadow:
+        inset 0 -2px 0 var(--accent),
+        0 0 0 2px var(--bg),
+        0 0 0 4px var(--accent-ink);
+    }
+  }
+}

@@ -4,4 +4,4 @@ data/
 /ui/node_modules/
 /ui/dist/
 /internal/web/dist/*
-!/internal/web/dist/.gitkeep
+!/internal/web/dist/README.txt
