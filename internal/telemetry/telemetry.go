@@ -188,20 +188,6 @@ func (r *Recorder) StartAttempt(attempt *Attempt) error {
 	return tx.Commit()
 }
 
-func (r *Recorder) FinishRequest(id string, status string, httpStatus *int, category ErrorCategory, usage TokenUsage, ttftMS, upstreamMS *int64, servedModel *string, completedAt time.Time) error {
-	ctx, cancel := writeCtx()
-	defer cancel()
-	_, err := r.db.ExecContext(ctx,
-		`UPDATE telemetry_requests SET status=?, http_status=?, error_category=?, input_tokens=?, output_tokens=?, total_tokens=?, ttft_ms=?, upstream_ms=?, served_model=?, completed_at=?, duration_ms=? WHERE id=?`,
-		status, nullInt(httpStatus), category, nullInt64(usage.Input), nullInt64(usage.Output), nullInt64(usage.Total),
-		nullInt64(ttftMS), nullInt64(upstreamMS), nullString(servedModel),
-		completedAt.UTC().Format(time.RFC3339Nano), durationMS(completedAt.Add(-time.Nanosecond), completedAt), id)
-	if err != nil {
-		return fmt.Errorf("telemetry: finish request: %w", err)
-	}
-	return nil
-}
-
 func (r *Recorder) FinishAttemptWithTiming(requestID string, number int, httpStatus *int, success bool, category ErrorCategory, usage TokenUsage, startedAt, completedAt time.Time) error {
 	ctx, cancel := writeCtx()
 	defer cancel()
