@@ -1,0 +1,12 @@
+services:
+  pogu:
+    build: .
+    image: ghcr.io/nawocci/pogu:latest
+    ports:
+      - '127.0.0.1:8099:8099'
+    volumes:
+      - pogu-data:/data
+    restart: unless-stopped
+
+volumes:
+  pogu-data:

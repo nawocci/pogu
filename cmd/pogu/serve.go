@@ -96,18 +96,29 @@ func syncOpenCodeLoop(ctx context.Context, svc *service.Service, logger *slog.Lo
 		}
 	}
 }
-func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service, error) {
+func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service, bool, error) {
 	cfg, err := config.Load(dataDir)
 	if err != nil {
-		return config.Config{}, nil, nil, err
+		return config.Config{}, nil, nil, false, err
 	}
-	key, err := crypto.LoadKey(cfg.MasterKeyFile)
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
+		return config.Config{}, nil, nil, false, fmt.Errorf("create data directory: %w", err)
+	}
+	if _, err := os.Stat(filepath.Join(cfg.DataDir, "config.json")); err != nil {
+		if !os.IsNotExist(err) {
+			return config.Config{}, nil, nil, false, err
+		}
+		if err := cfg.Save(); err != nil {
+			return config.Config{}, nil, nil, false, err
+		}
+	}
+	key, err := crypto.LoadOrCreateKey(cfg.MasterKeyFile)
 	if err != nil {
-		return config.Config{}, nil, nil, err
+		return config.Config{}, nil, nil, false, err
 	}
 	st, err := store.Open(cfg.DatabaseFile)
 	if err != nil {
-		return config.Config{}, nil, nil, err
+		return config.Config{}, nil, nil, false, err
 	}
 	svc := service.New(st, key)
 	if docsURL := os.Getenv("POGU_OPENCODE_DOCS_URL"); docsURL != "" {
@@ -116,9 +127,14 @@ func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service,
 	svc.OpenCodeDocsCacheFile = filepath.Join(cfg.DataDir, service.OpenCodeDocsCacheFile)
 	if err := svc.EnsureBuiltin(context.Background()); err != nil {
 		_ = st.Close()
-		return config.Config{}, nil, nil, err
+		return config.Config{}, nil, nil, false, err
 	}
-	return cfg, st, svc, nil
+	initialized, err := svc.AdminInitialized(context.Background())
+	if err != nil {
+		_ = st.Close()
+		return config.Config{}, nil, nil, false, err
+	}
+	return cfg, st, svc, !initialized, nil
 }
 
 func serveCommand(dataDir string, args []string) error {
@@ -128,7 +144,7 @@ func serveCommand(dataDir string, args []string) error {
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	cfg, st, svc, err := openRuntime(dataDir)
+	cfg, st, svc, setupMode, err := openRuntime(dataDir)
 	if err != nil {
 		return err
 	}
@@ -145,6 +161,16 @@ func serveCommand(dataDir string, args []string) error {
 	}
 	defer controlServer.Close()
 	api := httpapi.New(svc, logger)
+	if setupMode {
+		token, err := httpapi.GenerateSetupToken()
+		if err != nil {
+			return fmt.Errorf("generate setup token: %w", err)
+		}
+		api.EnableSetup(token)
+		logger.Warn("initial setup required",
+			"hint", "open the admin UI in a browser and complete setup with the token below")
+		logger.Warn("setup token", "token", token)
+	}
 	server := &http.Server{
 		Addr:              cfg.Listen,
 		Handler:           api.Handler(web.Handler()),

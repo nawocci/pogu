@@ -332,6 +332,12 @@ export const api = {
     }),
   logout: () => request<void>('/api/auth/logout', { method: 'POST' }),
   me: () => request<{ authenticated: boolean }>('/api/auth/me'),
+  setupStatus: () => request<{ setup_required: boolean }>('/api/auth/setup'),
+  completeSetup: (token: string, password: string) =>
+    request<{ authenticated: boolean }>('/api/auth/setup', {
+      method: 'POST',
+      body: JSON.stringify({ token, password }),
+    }),
   changePassword: (current_password: string, new_password: string) =>
     request<{ changed: boolean }>('/api/auth/password', {
       method: 'POST',

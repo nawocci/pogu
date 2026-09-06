@@ -59,6 +59,15 @@ func (s *Service) InitializeAdmin(ctx context.Context, password string) error {
 	return tx.Commit()
 }
 
+func (s *Service) AdminInitialized(ctx context.Context) (bool, error) {
+	var present bool
+	err := s.Store.DB.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM admin WHERE id=1)`).Scan(&present)
+	if err != nil {
+		return false, err
+	}
+	return present, nil
+}
+
 func (s *Service) CheckAdminPassword(ctx context.Context, password string) (bool, error) {
 	var hash string
 	err := s.Store.DB.QueryRowContext(ctx, `SELECT password_hash FROM admin WHERE id=1`).Scan(&hash)

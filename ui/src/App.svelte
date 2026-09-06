@@ -9,6 +9,7 @@
   import { reducedMotion } from './lib/motion.svelte';
   import { morphState, setMorphElement, setAuthenticated } from './lib/authMorph.svelte';
   import Login from './lib/Login.svelte';
+  import Setup from './lib/Setup.svelte';
   import Shell from './lib/Shell.svelte';
   import Providers from './lib/pages/Providers.svelte';
   import ProviderDetail from './lib/pages/ProviderDetail.svelte';
@@ -20,6 +21,7 @@
   import NotFound from './lib/pages/NotFound.svelte';
 
   let ready = $state(false);
+  let setupRequired = $state(false);
 
   onMount(() => {
     initRouter();
@@ -35,8 +37,12 @@
 
   $effect(() => {
     api
-      .me()
+      .setupStatus()
       .catch(() => null)
+      .then((s) => {
+        setupRequired = Boolean(s?.setup_required);
+        return api.me().catch(() => null);
+      })
       .then((me) => {
         app.authenticated = Boolean(me?.authenticated);
         ready = true;
@@ -90,7 +96,7 @@
     <div
       bind:this={morphEl}
       role={!app.authenticated ? 'document' : undefined}
-      aria-label={!app.authenticated ? 'Sign in' : undefined}
+      aria-label={!app.authenticated ? (setupRequired ? 'Set up' : 'Sign in') : undefined}
       class="w-full overflow-hidden border border-line shadow-workspace {app.authenticated
         ? 'h-[calc(100dvh-2*var(--inset-y))] max-w-[1840px] rounded-lg bg-ink max-compact:h-auto max-compact:min-h-dvh max-compact:max-w-none max-compact:rounded-none max-compact:border-0 max-compact:shadow-none'
         : 'max-w-[400px] rounded-lg bg-raised'}"
@@ -121,6 +127,8 @@
             {/key}
           </div>
         </Shell>
+      {:else if setupRequired}
+        <Setup ondone={() => (setupRequired = false)} />
       {:else}
         <Login />
       {/if}

@@ -22,6 +22,9 @@ type API struct {
 	loginSlots     chan struct{}
 	loginMu        sync.Mutex
 	loginAttempts  map[string]loginAttempt
+	setupMu        sync.Mutex
+	setupToken     string
+	setupActive    bool
 }
 
 type loginAttempt struct {
@@ -54,6 +57,8 @@ func (a *API) Handler(static http.Handler) http.Handler {
 	mux.HandleFunc("POST /api/auth/login", a.login)
 	mux.HandleFunc("POST /api/auth/logout", a.logout)
 	mux.HandleFunc("GET /api/auth/me", a.me)
+	mux.HandleFunc("GET /api/auth/setup", a.setupStatus)
+	mux.HandleFunc("POST /api/auth/setup", a.completeSetup)
 	mux.HandleFunc("POST /api/auth/password", a.changePassword)
 	mux.HandleFunc("GET /api/providers", a.providers)
 	mux.HandleFunc("POST /api/providers", a.createProvider)

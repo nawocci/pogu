@@ -84,6 +84,43 @@ make check   # vet + test + TypeScript type check
 make clean   # remove pogu binary and UI build output
 ```
 
+## Docker
+
+```sh
+docker build -t pogu .
+docker run -d --name pogu -p 127.0.0.1:8099:8099 -v pogu-data:/data --restart unless-stopped pogu
+```
+
+Or with compose:
+
+```sh
+docker compose up -d --build
+```
+
+Prebuilt images publish to `ghcr.io/nawocci/pogu` on pushes to
+`master` (`:latest` plus short-SHA tags) and on version tags.
+
+The image is distroless and runs as a non-root user; all state lives
+in `/data` (SQLite database, `master.key`, config), so keep it on a
+volume. On first boot with an empty volume the server starts in setup
+mode and prints a one-time setup token to its logs:
+
+```sh
+docker logs pogu 2>&1 | grep 'setup token'
+```
+
+Open the admin UI, enter the token, and choose an admin password
+(at least 12 characters). Whoever completes setup first claims the
+instance, so do this immediately and do not expose an unclaimed
+instance to a network you do not trust. To update, rebuild and
+recreate the container — the volume preserves everything.
+
+Back up `/data/pogu.db` together with `/data/master.key`: losing the
+master key makes stored provider credentials unrecoverable. Avoid
+network filesystems for the volume; SQLite file locking may misbehave
+on them. For public deployments, put the container behind a
+TLS-terminating reverse proxy.
+
 ## Quick start
 
 ```sh
@@ -310,7 +347,3 @@ go test ./...
 A full-system integration harness (deterministic mock OpenAI/Anthropic providers,
 no paid accounts needed) lives in the bringup workspace next to this repo:
 `pogu-bringup/scripts/bringup`.
-
-## License
-
-TBD
