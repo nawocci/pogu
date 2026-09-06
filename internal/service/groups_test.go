@@ -2,7 +2,11 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/nawocci/pogu/internal/crypto"
@@ -276,13 +280,152 @@ func TestBuiltinAndSync(t *testing.T) {
 	if _, err := s.CreateProvider(ctx, "Squat", ProviderOpenAI, "oc", "https://x.test", "", true); !errors.Is(err, ErrValidation) {
 		t.Fatalf("oc squat = %v", err)
 	}
-	if !IsFreeOpenCodeModel("mimo-free") || !IsFreeOpenCodeModel("big-pickle") {
-		t.Fatal("free classifier wrong")
+}
+
+const syncDocsFixture = "# Zen\n" +
+	"\n" +
+	"## Endpoints\n" +
+	"\n" +
+	"| Model | Model ID | Endpoint |\n" +
+	"| ----- | -------- | -------- |\n" +
+	"| Chat Free | chat-free | https://opencode.ai/zen/v1/chat/completions |\n" +
+	"| Spark Free | spark-free | https://opencode.ai/zen/v1/responses |\n" +
+	"| Pickle | big-pickle | https://opencode.ai/zen/v1/chat/completions |\n" +
+	"| Ghost Free | ghost-free | https://opencode.ai/zen/v1/chat/completions |\n" +
+	"\n" +
+	"## Pricing\n" +
+	"\n" +
+	"| Model | Input | Output |\n" +
+	"| ----- | ----- | ------ |\n" +
+	"| Chat Free | Free | Free |\n" +
+	"| Spark Free | Free | Free |\n" +
+	"| Pickle | Free | Free |\n" +
+	"| Ghost Free | Free | Free |\n" +
+	"| Paid | $1.00 | $2.00 |\n"
+
+func syncStubs(t *testing.T, catalogIDs []string, docs string, docsStatus int) (*Service, context.Context) {
+	t.Helper()
+	s, ctx := testService(t)
+	catalogSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ids := make([]map[string]string, 0, len(catalogIDs))
+		for _, id := range catalogIDs {
+			ids = append(ids, map[string]string{"id": id})
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": ids})
+	}))
+	t.Cleanup(catalogSrv.Close)
+	docsSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if docsStatus != 0 {
+			w.WriteHeader(docsStatus)
+			return
+		}
+		_, _ = io.WriteString(w, docs)
+	}))
+	t.Cleanup(docsSrv.Close)
+	s.OpenCodeCatalogURL = catalogSrv.URL
+	s.OpenCodeDocsURL = docsSrv.URL
+	if err := s.EnsureBuiltin(ctx); err != nil {
+		t.Fatal(err)
 	}
-	if IsFreeOpenCodeModel("deepseek-v4-flash-free") || IsFreeOpenCodeModel("claude-sonnet-4") {
-		t.Fatal("free classifier wrong")
+	return s, ctx
+}
+
+func builtinModelSchemes(t *testing.T, s *Service, ctx context.Context) map[string]string {
+	t.Helper()
+	b, err := s.GetBuiltinProvider(ctx)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if !IsResponsesModel("muse-spark-v1") {
-		t.Fatal("responses classifier wrong")
+	rows, err := s.Store.DB.QueryContext(ctx, `SELECT name, scheme, enabled FROM models WHERE provider_id=?`, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var name, scheme string
+		var enabled int
+		if err := rows.Scan(&name, &scheme, &enabled); err != nil {
+			t.Fatal(err)
+		}
+		if enabled == 0 {
+			name += " (disabled)"
+		}
+		out[name] = scheme
+	}
+	return out
+}
+
+func TestSyncAddsDocsFreeModels(t *testing.T) {
+	s, ctx := syncStubs(t,
+		[]string{"chat-free", "spark-free", "big-pickle", "claude-paid", "legacy-free"},
+		syncDocsFixture, 0)
+	b, err := s.GetBuiltinProvider(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateModel(ctx, b.ID, "legacy-free", true); err != nil {
+		t.Fatal(err)
+	}
+	summary, err := s.SyncOpenCodeModels(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Catalog != 5 || summary.Free != 3 || summary.Added != 3 || summary.Disabled != 1 {
+		t.Fatalf("summary = %+v", summary)
+	}
+	got := builtinModelSchemes(t, s, ctx)
+	want := map[string]string{
+		"chat-free":              "",
+		"spark-free":             "openai-responses",
+		"big-pickle":             "",
+		"legacy-free (disabled)": "",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("models = %+v", got)
+	}
+	for name, scheme := range want {
+		if got[name] != scheme {
+			t.Fatalf("models[%q] scheme = %q, models = %+v", name, got[name], got)
+		}
+	}
+}
+
+func TestSyncFailureChangesNothing(t *testing.T) {
+	s, ctx := syncStubs(t, []string{"chat-free"}, syncDocsFixture, 500)
+	if _, err := s.SyncOpenCodeModels(ctx); err == nil {
+		t.Fatal("docs 500 must fail the sync")
+	}
+	b, _ := s.GetBuiltinProvider(ctx)
+	models, err := s.ListModels(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range models {
+		if m.ProviderID == b.ID {
+			t.Fatalf("failed sync stored %+v", m)
+		}
+	}
+}
+
+func TestSyncKeepsOperatorPin(t *testing.T) {
+	s, ctx := syncStubs(t, []string{"spark-free"}, syncDocsFixture, 0)
+	b, _ := s.GetBuiltinProvider(ctx)
+	m, err := s.CreateModel(ctx, b.ID, "spark-free", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetModelScheme(ctx, m.ID, "openai"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SyncOpenCodeModels(ctx); err != nil {
+		t.Fatal(err)
+	}
+	pinned, err := s.GetModel(ctx, m.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pinned.Scheme != "openai" {
+		t.Fatalf("operator pin overwritten: %+v", pinned)
 	}
 }

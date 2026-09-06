@@ -7,33 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/nawocci/pogu/internal/store"
 )
 
+// OpenCodeCatalogURL serves the full upstream model catalog in OpenAI list
+// shape ({object:"list",data:[{id,...}]}).
 const OpenCodeCatalogURL = "https://opencode.ai/zen/v1/models"
 
-var deadOpenCodeModels = map[string]bool{"deepseek-v4-flash-free": true}
-
-var knownFreeOpenCodeModels = map[string]bool{"big-pickle": true}
-
-func IsFreeOpenCodeModel(id string) bool {
-	if deadOpenCodeModels[id] {
-		return false
-	}
-	return strings.HasSuffix(id, "-free") || knownFreeOpenCodeModels[id]
-}
-
-func IsResponsesModel(id string) bool {
-	base := id
-	if i := strings.LastIndex(base, "("); i >= 0 && strings.HasSuffix(base, ")") {
-		base = strings.TrimSpace(base[:i])
-	}
-	return strings.HasPrefix(strings.ToLower(base), "muse-spark")
-}
-
+// OpenCodeSyncSummary describes one catalog reconciliation.
 type OpenCodeSyncSummary struct {
 	Catalog  int `json:"catalog"`
 	Free     int `json:"free"`
@@ -61,6 +44,16 @@ func (s *Service) GetBuiltinProvider(ctx context.Context) (Provider, error) {
 	return s.GetProvider(ctx, id)
 }
 
+// SyncOpenCodeModels reconciles the built-in provider's model rows with the
+// live upstream catalog intersected with the Zen docs free list: docs-Free
+// ids present in the catalog are added (enabled) with the wire scheme seeded
+// from the docs endpoint URL. Locally stored ids missing from that set are
+// disabled (never deleted, so group memberships and telemetry history
+// survive). Existing rows keep their enabled state and explicit scheme pins —
+// an operator disable or pin is not overridden. Both sources are required: a
+// fetch or parse failure aborts the sync and changes nothing. The caller
+// decides when syncing is appropriate (enabled-gating lives in the worker,
+// not here, so a manual sync is always an explicit opt-in).
 func (s *Service) SyncOpenCodeModels(ctx context.Context) (OpenCodeSyncSummary, error) {
 	var summary OpenCodeSyncSummary
 	p, err := s.GetBuiltinProvider(ctx)
@@ -72,16 +65,17 @@ func (s *Service) SyncOpenCodeModels(ctx context.Context) (OpenCodeSyncSummary, 
 		return summary, err
 	}
 	summary.Catalog = len(ids)
+	docs, err := fetchOpenCodeDocs(ctx, s.openCodeDocsURL())
+	if err != nil {
+		return summary, err
+	}
+	free := docs.FreeIDs()
 	want := make(map[string]string)
 	for _, id := range ids {
-		if !IsFreeOpenCodeModel(id) {
+		if !free[id] {
 			continue
 		}
-		if IsResponsesModel(id) {
-			want[id] = string(SchemeOpenAIResponses)
-		} else {
-			want[id] = ""
-		}
+		want[id] = SchemeForDocsEndpoint(docs.Endpoints[id])
 	}
 	summary.Free = len(want)
 
