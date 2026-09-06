@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/nawocci/pogu/internal/provider"
 	"github.com/nawocci/pogu/internal/service"
@@ -92,6 +93,9 @@ func (a *API) updateProvider(w http.ResponseWriter, r *http.Request) {
 		writeServiceError(w, err)
 		return
 	}
+	if p.Builtin != "" && p.Enabled {
+		go a.syncBuiltinAsync()
+	}
 	jsonWrite(w, http.StatusOK, p)
 }
 
@@ -139,4 +143,43 @@ func (a *API) testProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonWrite(w, http.StatusOK, map[string]any{"ok": true, "message": "connection successful"})
+}
+
+func (a *API) syncProvider(w http.ResponseWriter, r *http.Request) {
+	id, err := idParam(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	p, err := a.Service.GetProvider(r.Context(), id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	if p.Builtin == "" {
+		jsonError(w, http.StatusBadRequest, "catalog sync is only supported for the built-in provider")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
+	defer cancel()
+	summary, err := a.Service.SyncOpenCodeModels(ctx)
+	if err != nil {
+		jsonError(w, http.StatusBadGateway, "catalog sync failed: "+err.Error())
+		return
+	}
+	jsonWrite(w, http.StatusOK, summary)
+}
+
+func (a *API) syncBuiltinAsync() {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	summary, err := a.Service.SyncOpenCodeModels(ctx)
+	if a.Logger == nil {
+		return
+	}
+	if err != nil {
+		a.Logger.Warn("opencode catalog sync failed", "error", err.Error())
+		return
+	}
+	a.Logger.Info("opencode catalog sync", "added", summary.Added, "disabled", summary.Disabled, "free", summary.Free)
 }

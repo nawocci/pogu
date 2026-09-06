@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"time"
 
@@ -62,7 +64,7 @@ func controlResource(dataDir, resource string, args []string) error {
 
 func controlProviderKey(dataDir string, args []string) error {
 	if len(args) == 0 {
-		return errors.New("provider key: operation is required (list, create, get, update, enable, disable, primary, delete, test)")
+		return errors.New("provider key: operation is required (list, create, get, update, enable, disable, primary, delete, test, import)")
 	}
 	op := args[0]
 	client, err := controlClient(dataDir)
@@ -74,6 +76,8 @@ func controlProviderKey(dataDir string, args []string) error {
 	providerID := int64(0)
 	name := ""
 	secret := ""
+	file := ""
+	preview := false
 	enabled := true
 	enabledSet := false
 
@@ -81,6 +85,8 @@ func controlProviderKey(dataDir string, args []string) error {
 	fs.Int64Var(&providerID, "provider-id", 0, "provider id")
 	fs.StringVar(&name, "name", "", "key name")
 	fs.StringVar(&secret, "secret", "", "provider API key secret")
+	fs.StringVar(&file, "file", "", "input file for batch import")
+	fs.BoolVar(&preview, "preview", false, "preview import without committing")
 	fs.BoolFunc("enabled", "enable or disable the key", func(value string) error {
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
@@ -119,6 +125,23 @@ func controlProviderKey(dataDir string, args []string) error {
 		req.Secret = &secret
 	}
 
+	if op == "import" {
+		var textBytes []byte
+		if file != "" {
+			textBytes, err = os.ReadFile(file)
+			if err != nil {
+				return fmt.Errorf("read import file: %w", err)
+			}
+		} else {
+			textBytes, err = io.ReadAll(os.Stdin)
+			if err != nil {
+				return fmt.Errorf("read import from stdin: %w", err)
+			}
+		}
+		req.Text = string(textBytes)
+		req.Preview = preview
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	var result any
@@ -146,7 +169,7 @@ func parseControlRequest(resource string, args []string) (control.Request, error
 	enabledSet := false
 	fs.Int64Var(&id, "id", 0, "resource id")
 	fs.StringVar(&name, "name", "", "name")
-	fs.Var(providerTypeValue{value: &typ}, "type", "provider protocol (openai or anthropic)")
+	fs.Var(providerTypeValue{value: &typ}, "type", "provider protocol (openai, openai-responses, or anthropic)")
 	fs.StringVar(&prefix, "prefix", "", "provider prefix")
 	fs.StringVar(&baseURL, "base-url", "", "provider base URL")
 	fs.StringVar(&apiKey, "api-key", "", "provider API key")
@@ -241,7 +264,7 @@ func (v providerTypeValue) String() string {
 func (v providerTypeValue) Set(value string) error {
 	typ := service.ProviderType(value)
 	if !typ.Valid() {
-		return errors.New("type must be openai or anthropic")
+		return errors.New("type must be openai, openai-responses, or anthropic")
 	}
 	*v.value = typ
 	return nil

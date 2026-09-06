@@ -49,6 +49,29 @@ func (a *API) createProviderKey(w http.ResponseWriter, r *http.Request) {
 	jsonWrite(w, http.StatusCreated, map[string]any{"key": key, "secret": in.Secret})
 }
 
+type importInput struct {
+	Text    string `json:"text"`
+	Preview bool   `json:"preview"`
+}
+
+func (a *API) importProviderKeys(w http.ResponseWriter, r *http.Request) {
+	providerID, err := idParam(r)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+	var in importInput
+	if !decodeJSON(w, r, &in) {
+		return
+	}
+	result, err := a.Service.ImportProviderKeys(r.Context(), providerID, in.Text, !in.Preview)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	jsonWrite(w, http.StatusOK, result)
+}
+
 func (a *API) updateProviderKey(w http.ResponseWriter, r *http.Request) {
 	keyID, err := keyIDParam(r)
 	if err != nil {

@@ -29,6 +29,22 @@ type gatewayTelemetry struct {
 	served     *string
 }
 
+func (g *gatewayTelemetry) recordGroupResolution(group service.Group, resolvedModel string) {
+	if g == nil || g.id == "" || g.recorder == nil {
+		return
+	}
+	if err := g.recorder.RecordResolution(g.id, &group.ID, &group.Name, resolvedModel); err != nil {
+		g.logFailure("record group resolution", err)
+	}
+	g.hub.publishRouted(&monitorRouted{
+		RequestID:     g.id,
+		Provider:      g.route.Provider.Name,
+		UpstreamModel: g.route.Model.Name,
+		ResolvedModel: resolvedModel,
+		GroupName:     group.Name,
+	})
+}
+
 func (g *gatewayTelemetry) recordDirectRoute() {
 	if g == nil || g.id == "" {
 		return

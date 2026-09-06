@@ -52,10 +52,49 @@ func initCommand(dataDir string, args []string) error {
 	if err := svc.InitializeAdmin(context.Background(), password); err != nil {
 		return err
 	}
+	if err := svc.EnsureBuiltin(context.Background()); err != nil {
+		return err
+	}
 	fmt.Printf("initialized data directory %s\n", cfg.DataDir)
 	return nil
 }
 
+func syncOpenCodeLoop(ctx context.Context, svc *service.Service, logger *slog.Logger) {
+	ticker := time.NewTicker(30 * time.Minute)
+	defer ticker.Stop()
+	syncOnce := func() {
+		p, err := svc.GetBuiltinProvider(ctx)
+		if err != nil {
+			logger.Warn("opencode catalog sync skipped", "error", err.Error())
+			return
+		}
+		if !p.Enabled {
+			return
+		}
+		syncCtx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		defer cancel()
+		summary, err := svc.SyncOpenCodeModels(syncCtx)
+		if err != nil {
+			logger.Warn("opencode catalog sync failed", "error", err.Error())
+			return
+		}
+		logger.Info("opencode catalog sync", "added", summary.Added, "disabled", summary.Disabled, "free", summary.Free)
+	}
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(15 * time.Second):
+	}
+	syncOnce()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			syncOnce()
+		}
+	}
+}
 func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service, error) {
 	cfg, err := config.Load(dataDir)
 	if err != nil {
@@ -70,6 +109,10 @@ func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service,
 		return config.Config{}, nil, nil, err
 	}
 	svc := service.New(st, key)
+	if err := svc.EnsureBuiltin(context.Background()); err != nil {
+		_ = st.Close()
+		return config.Config{}, nil, nil, err
+	}
 	return cfg, st, svc, nil
 }
 
@@ -108,6 +151,7 @@ func serveCommand(dataDir string, args []string) error {
 	go func() { serveErr <- server.ListenAndServe() }()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	go syncOpenCodeLoop(ctx, svc, logger)
 	select {
 	case err := <-serveErr:
 		if errors.Is(err, http.ErrServerClosed) {

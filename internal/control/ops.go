@@ -47,6 +47,15 @@ func (s *Server) execute(ctx context.Context, r Request) (any, error) {
 		return s.Service.UpdateProvider(ctx, r.ID, r.Name, r.Type, r.Prefix, r.BaseURL, enabled, r.KeySelection)
 	case "provider.delete":
 		return nil, s.Service.DeleteProvider(ctx, r.ID)
+	case "provider.sync":
+		p, err := s.Service.GetProvider(ctx, r.ID)
+		if err != nil {
+			return nil, err
+		}
+		if p.Builtin == "" {
+			return nil, errors.New("catalog sync is only supported for the built-in provider")
+		}
+		return s.Service.SyncOpenCodeModels(ctx)
 	case "provider.test":
 		if s.tester == nil {
 			return nil, errors.New("provider connectivity test unavailable")
@@ -103,6 +112,8 @@ func (s *Server) execute(ctx context.Context, r Request) (any, error) {
 			return ProviderTestResult{OK: false, Message: "provider connection failed"}, nil
 		}
 		return ProviderTestResult{OK: true, Message: "connection successful"}, nil
+	case "provider_key.import":
+		return s.Service.ImportProviderKeys(ctx, r.ProviderID, r.Text, !r.Preview)
 	case "model.list":
 		return s.Service.ListModels(ctx)
 	case "model.get":

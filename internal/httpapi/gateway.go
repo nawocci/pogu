@@ -32,25 +32,33 @@ func isFailoverStatus(status int) bool {
 	return status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusTooManyRequests
 }
 
-func (a *API) resolveTargets(ctx context.Context, model string) ([]routeTarget, error) {
-	if !strings.Contains(model, "/") {
-		return nil, service.ErrUnknownRoute
+func (a *API) resolveTargets(ctx context.Context, model, protocol string) ([]routeTarget, service.Group, bool, error) {
+	if strings.Contains(model, "/") {
+		if strings.Count(model, "/") != 1 {
+			return nil, service.Group{}, false, errors.New("model must be a group name or a provider-prefix/model reference")
+		}
+		route, err := a.Service.ResolveRoute(ctx, model)
+		if err != nil {
+			return nil, service.Group{}, false, err
+		}
+		keys, err := a.Service.EligibleKeys(ctx, route.Provider.ID)
+		if err != nil {
+			return nil, service.Group{}, false, err
+		}
+		if len(keys) == 0 {
+			return nil, service.Group{}, false, service.ErrNoCredentials
+		}
+		return []routeTarget{{Route: route, Keys: keys}}, service.Group{}, false, nil
 	}
-	if strings.Count(model, "/") != 1 {
-		return nil, errors.New("model must be a group name or a provider-prefix/model reference")
-	}
-	route, err := a.Service.ResolveRoute(ctx, model)
+	group, candidates, err := a.Service.ResolveGroupTargets(ctx, model, protocol)
 	if err != nil {
-		return nil, err
+		return nil, group, false, err
 	}
-	keys, err := a.Service.EligibleKeys(ctx, route.Provider.ID)
-	if err != nil {
-		return nil, err
+	targets := make([]routeTarget, len(candidates))
+	for i, c := range candidates {
+		targets[i] = routeTarget{Route: c.Route, Keys: c.Keys}
 	}
-	if len(keys) == 0 {
-		return nil, service.ErrNoCredentials
-	}
-	return []routeTarget{{Route: route, Keys: keys}}, nil
+	return targets, group, true, nil
 }
 
 func (a *API) writeRouteError(w http.ResponseWriter, protocol string, err error) {
@@ -100,14 +108,18 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 		writeProtocolError(w, protocol, http.StatusBadRequest, "request must contain a valid model", "invalid_request_error")
 		return
 	}
-	targets, err := a.resolveTargets(r.Context(), envelope.Model)
+	targets, group, isGroup, err := a.resolveTargets(r.Context(), envelope.Model, protocol)
 	if err != nil {
 		a.writeRouteError(w, protocol, err)
 		return
 	}
 
 	rec := a.newGatewayTelemetry(w, r, protocol, key, envelope.Model, targets[0].Route, envelope.Stream, targets[0].Keys[0].ID)
-	rec.recordDirectRoute()
+	if isGroup {
+		rec.recordGroupResolution(group, targets[0].Route.Model.PublicID)
+	} else {
+		rec.recordDirectRoute()
+	}
 
 	var lastProxyErr error
 	lastHTTPStatus := http.StatusBadGateway
@@ -203,6 +215,10 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 func (a *API) proxyStream(ctx context.Context, client, scheme string, p service.Provider, secret, path string, body, rawBody []byte, w http.ResponseWriter, collector *provider.SSEUsageCollector) error {
 	c := a.ProviderClient
 	switch {
+	case scheme == string(service.SchemeOpenAIResponses) && client == "anthropic":
+		return provider.ProxyResponsesInletStream(ctx, c, p, secret, path, rawBody, w, collector)
+	case scheme == string(service.SchemeOpenAIResponses):
+		return provider.ProxyResponsesStream(ctx, c, p, secret, path, body, w, collector)
 	case scheme == string(service.SchemeAnthropic) && client == "anthropic":
 		return provider.ProxyStream(ctx, c, p, secret, path, rawBody, w, collector)
 	case scheme == string(service.SchemeAnthropic):
@@ -217,6 +233,10 @@ func (a *API) proxyStream(ctx context.Context, client, scheme string, p service.
 func (a *API) proxyUnary(ctx context.Context, client, scheme string, p service.Provider, secret, path string, body, rawBody []byte, w http.ResponseWriter, tee io.Writer) error {
 	c := a.ProviderClient
 	switch {
+	case scheme == string(service.SchemeOpenAIResponses) && client == "anthropic":
+		return provider.ProxyResponsesInletUnary(ctx, c, p, secret, path, rawBody, w, tee)
+	case scheme == string(service.SchemeOpenAIResponses):
+		return provider.ProxyResponsesUnary(ctx, c, p, secret, path, body, w, tee)
 	case scheme == string(service.SchemeAnthropic) && client == "anthropic":
 		return provider.ProxyUnary(ctx, c, p, secret, path, rawBody, w, tee)
 	case scheme == string(service.SchemeAnthropic):
@@ -292,6 +312,31 @@ func (a *API) models(w http.ResponseWriter, r *http.Request) {
 				"id":       model.PublicID,
 				"object":   "model",
 				"created":  model.CreatedAt.Unix(),
+				"owned_by": "pogu",
+			})
+		}
+	}
+	groups, err := a.Service.ListGroups(r.Context())
+	if err != nil {
+		writeProtocolError(w, protocol, http.StatusInternalServerError, "could not list models", internalErrorType(protocol))
+		return
+	}
+	for _, group := range groups {
+		if !group.Enabled || group.MemberCount == 0 {
+			continue
+		}
+		if protocol == "anthropic" {
+			entries = append(entries, map[string]any{
+				"id":           group.Name,
+				"type":         "model",
+				"display_name": group.Name,
+				"created_at":   group.CreatedAt.UTC().Format(time.RFC3339),
+			})
+		} else {
+			entries = append(entries, map[string]any{
+				"id":       group.Name,
+				"object":   "model",
+				"created":  group.CreatedAt.Unix(),
 				"owned_by": "pogu",
 			})
 		}
