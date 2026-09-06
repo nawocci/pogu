@@ -91,7 +91,8 @@
   </div>
 </header>
 
-<section use:reveal={{ kind: 'rise', i: 1 }} aria-labelledby="password-h" class="max-w-[640px]">
+<div class="grid items-start gap-x-6 gap-y-[42px] wide:grid-cols-2">
+<section use:reveal={{ kind: 'rise', i: 1 }} aria-labelledby="password-h">
   <div class="sec-head">
     <h2 id="password-h">Administrator password</h2>
   </div>
@@ -120,7 +121,7 @@
   </form>
 </section>
 
-<section use:reveal={{ kind: 'rise', i: 2 }} aria-labelledby="prompt-h" class="mt-[42px] max-w-[640px]">
+<section use:reveal={{ kind: 'rise', i: 1 }} aria-labelledby="prompt-h">
   <div class="sec-head">
     <h2 id="prompt-h">Global system prompt</h2>
   </div>
@@ -158,3 +159,4 @@
     </form>
   {/if}
 </section>
+</div>

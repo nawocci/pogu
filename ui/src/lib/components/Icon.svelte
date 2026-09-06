@@ -24,7 +24,7 @@
       '<path d="m10 2.5 7 4-7 4-7-4 7-4Z"/><path d="m3 10.5 7 4 7-4"/><path d="m3 14.5 7 4 7-4"/>',
     monitoring: '<path d="M2 10h4l2.5-6 3 12 2.5-6H18"/>',
     configurations:
-      '<circle cx="10" cy="10" r="2.5"/><path d="M10 1.5v2.5M10 16v2.5M18.5 10h-2.5M3.5 10H1M16 4l-1.8 1.8M5.8 12.2 4 14M16 16l-1.8-1.8M5.8 7.8 4 6"/>',
+      '<path d="M2 5h16M2 10h16M2 15h16"/><circle cx="7" cy="5" r="2.2"/><circle cx="13.5" cy="10" r="2.2"/><circle cx="9" cy="15" r="2.2"/>',
     collapse: '<path d="m8.5 4-5 6 5 6M15.5 4l-5 6 5 6"/>',
     expand: '<path d="m5.5 4 5 6-5 6M12.5 4l5 6-5 6"/>',
     chevron: '<path d="m5 8 5 5 5-5"/>',
