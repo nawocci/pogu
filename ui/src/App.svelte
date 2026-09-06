@@ -12,7 +12,10 @@
   import Shell from './lib/Shell.svelte';
   import Providers from './lib/pages/Providers.svelte';
   import ProviderDetail from './lib/pages/ProviderDetail.svelte';
+  import Groups from './lib/pages/Groups.svelte';
+  import GroupDetail from './lib/pages/GroupDetail.svelte';
   import Connections from './lib/pages/Connections.svelte';
+  import Monitoring from './lib/pages/Monitoring.svelte';
   import NotFound from './lib/pages/NotFound.svelte';
 
   let ready = $state(false);
@@ -92,6 +95,12 @@
                   <Providers />
                 {:else if router.route.name === 'provider-detail'}
                   <ProviderDetail providerId={router.route.providerId} />
+                {:else if router.route.name === 'groups'}
+                  <Groups />
+                {:else if router.route.name === 'group-detail'}
+                  <GroupDetail groupId={router.route.groupId} />
+                {:else if router.route.name === 'monitoring'}
+                  <Monitoring />
                 {:else}
                   <NotFound path={router.path} />
                 {/if}

@@ -13,11 +13,13 @@
   /* svelte-ignore state_referenced_locally */
   let name = $state(existing?.name ?? '');
   /* svelte-ignore state_referenced_locally */
-  let type = $state<'openai' | 'anthropic'>(existing?.type === 'anthropic' ? 'anthropic' : 'openai');
+  let type = $state<'openai' | 'openai-responses' | 'anthropic'>(existing?.type ?? 'openai');
   /* svelte-ignore state_referenced_locally */
   let prefix = $state(existing?.prefix ?? '');
   /* svelte-ignore state_referenced_locally */
   let baseUrl = $state(existing?.base_url ?? '');
+  /* svelte-ignore state_referenced_locally */
+  let keySelection = $state<'first' | 'round_robin'>(existing?.key_selection ?? 'first');
   let apiKey = $state('');
   let busy = $state(false);
   let error = $state('');
@@ -30,7 +32,7 @@
       type,
       prefix: prefix.trim(),
       base_url: baseUrl.trim().replace(/\/+$/, ''),
-      key_selection: 'first' as const,
+      key_selection: keySelection,
       enabled: existing?.enabled ?? true,
     };
     if (!input.name) {
@@ -77,9 +79,10 @@
         <span>Upstream API</span>
         <Dropdown
           value={type}
-          onchange={(v) => (type = v as 'openai' | 'anthropic')}
+          onchange={(v) => (type = v as 'openai' | 'openai-responses' | 'anthropic')}
           options={[
             { value: 'openai', label: 'OpenAI' },
+            { value: 'openai-responses', label: 'OpenAI Responses' },
             { value: 'anthropic', label: 'Anthropic' },
           ]}
         />
@@ -102,6 +105,20 @@
         <p class="hint">More keys — with failover — can be added on the provider's page.</p>
       </label>
     {/if}
+    <div class="grid grid-cols-2 gap-4 max-compact:grid-cols-1">
+      <label class="field">
+        <span>Key selection</span>
+        <Dropdown
+          value={keySelection}
+          onchange={(v) => (keySelection = v as 'first' | 'round_robin')}
+          options={[
+            { value: 'first', label: 'Primary first' },
+            { value: 'round_robin', label: 'Round robin' },
+          ]}
+        />
+        <p class="hint">How pogu picks among the provider's API keys.</p>
+      </label>
+    </div>
 
     {#if error}<p class="error-line enter-blip">{error}</p>{/if}
 

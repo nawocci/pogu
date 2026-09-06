@@ -12,6 +12,7 @@
   import ProviderModal from './ProviderModal.svelte';
   import ProviderKeyModal from './ProviderKeyModal.svelte';
   import ProviderKeyEditModal from './ProviderKeyEditModal.svelte';
+  import BatchImportModal from './BatchImportModal.svelte';
   import ModelModal from './ModelModal.svelte';
 
   let { providerId }: { providerId: number } = $props();
@@ -25,11 +26,13 @@
   let showEdit = $state(false);
   let showAddKey = $state(false);
   let editingKey = $state<ProviderKey | null>(null);
+  let showImport = $state(false);
   let showAddModel = $state(false);
   let editingModel = $state<Model | null>(null);
 
   let busyToggle = $state(false);
   let busyTest = $state(false);
+  let busySync = $state(false);
   let busyKeyAction = $state<{ id: number; action: 'primary' | 'test' | 'toggle' } | null>(null);
   let busyModel = $state<number | null>(null);
   const armed = createArmed();
@@ -84,6 +87,20 @@
     }
   }
 
+  async function runSync() {
+    if (!provider || busySync) return;
+    busySync = true;
+    try {
+      const s = await api.syncProvider(provider.id);
+      await loadDetail();
+      toast('success', `Catalog synced — ${s.free} free models, ${s.added} added, ${s.disabled} disabled`);
+    } catch (e) {
+      fail(e);
+    } finally {
+      busySync = false;
+    }
+  }
+
   async function testKey(key: ProviderKey) {
     if (busyKeyAction) return;
     busyKeyAction = { id: key.id, action: 'test' };
@@ -129,6 +146,19 @@
       await api.deleteProviderKey(providerId, key.id);
       await loadDetail();
       toast('success', `Key "${key.name}" deleted`);
+    } catch (e) {
+      fail(e);
+    }
+  }
+
+  async function setSelection(mode: 'first' | 'round_robin') {
+    const current = provider;
+    if (!current || current.key_selection === mode) return;
+    try {
+      provider = await store.mutate(() =>
+        api.updateProvider(current.id, providerInput(current, { key_selection: mode })),
+      );
+      toast('success', mode === 'round_robin' ? 'Key selection set to round robin' : 'Key selection set to primary first');
     } catch (e) {
       fail(e);
     }
@@ -194,6 +224,9 @@
       <h1 class="leading-none">{provider.name}</h1>
       <p class="mt-2.5 flex flex-wrap items-center gap-2.5 text-[13px] text-tertiary">
         <code class="rounded-full bg-accent-dim px-2 py-0.5 font-mono text-[10.5px] font-medium text-accent-ink">{provider.prefix}</code>
+        {#if provider.builtin}
+          <span class="rounded-full border border-line px-2 py-px font-mono text-[10px] font-medium tracking-[0.04em] uppercase" title="Built-in provider — permanent, no API key required">Built-in</span>
+        {/if}
         <span>{typeLabel(provider.type)}</span>
         <span class="text-muted">·</span>
         <code class="font-mono text-[11.5px] text-primary [overflow-wrap:anywhere]">{provider.base_url}</code>
@@ -204,17 +237,24 @@
       <button class="btn btn-sm" onclick={runTest} disabled={busyTest} aria-busy={busyTest}>
         <Busy busy={busyTest} text={busyTest ? 'Testing…' : 'Test connection'} wide="Test connection" />
       </button>
+      {#if provider.builtin}
+        <button class="btn btn-sm" onclick={runSync} disabled={busySync} aria-busy={busySync}>
+          <Busy busy={busySync} text={busySync ? 'Syncing…' : 'Sync models'} wide="Sync models" />
+        </button>
+      {/if}
       <button class="btn btn-sm" onclick={() => provider && setEnabled(!provider.enabled)} disabled={busyToggle} aria-busy={busyToggle}>
         <Busy busy={busyToggle} text={provider.enabled ? 'Disable' : 'Enable'} wide="Disable" />
       </button>
       <button class="btn btn-sm" onclick={() => (showEdit = true)}>Edit</button>
-      <button
-        class="btn btn-sm btn-danger"
-        class:btn-armed={armed.is('provider')}
-        onclick={() => armed.confirm('provider', deleteProvider)}
-      >
-        <Fit text={armed.is('provider') ? 'Confirm delete' : 'Delete'} wide="Confirm delete" />
-      </button>
+      {#if !provider.builtin}
+        <button
+          class="btn btn-sm btn-danger"
+          class:btn-armed={armed.is('provider')}
+          onclick={() => armed.confirm('provider', deleteProvider)}
+        >
+          <Fit text={armed.is('provider') ? 'Confirm delete' : 'Delete'} wide="Confirm delete" />
+        </button>
+      {/if}
     </div>
   </header>
 
@@ -230,16 +270,40 @@
   <section use:reveal={{ kind: 'rise', i: 2 }} aria-labelledby="keys-h">
     <div class="sec-head">
       <h2 id="keys-h">API keys <span class="ml-[5px] font-mono text-[13px] text-accent-ink [vertical-align:3px]">{keys.length}</span></h2>
-      <div class="flex gap-2">
-        <button class="btn btn-sm btn-primary" onclick={() => (showAddKey = true)}>Add key</button>
-      </div>
+      {#if !provider.builtin}
+        <div class="flex gap-2">
+          <button class="btn btn-sm" onclick={() => (showImport = true)}>Batch import</button>
+          <button class="btn btn-sm btn-primary" onclick={() => (showAddKey = true)}>Add key</button>
+        </div>
+      {/if}
     </div>
+
+    {#if provider.builtin}
+      <p class="text-[13px] text-tertiary">No API key required — pogu manages the public free-tier credential automatically. Disable the provider to stop all traffic to this upstream.</p>
+    {:else}
 
     <div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-sm border border-line bg-raised px-3.5 py-2.5">
       <span class="font-mono text-[10px] font-semibold tracking-[0.07em] text-tertiary uppercase">Key selection</span>
-      <span class="rounded-[2px] bg-raised px-3 py-1 font-mono text-[10px] font-medium tracking-[0.07em] text-paper uppercase shadow-[0_0_0_1px_var(--line)]">Primary first</span>
+      <div class="flex gap-0.5 rounded-sm border border-line bg-well p-0.5" role="group" aria-label="Key selection strategy">
+        <button
+          aria-pressed={provider.key_selection === 'first'}
+          class="rounded-[2px] px-3 py-1 font-mono text-[10px] font-medium tracking-[0.07em] uppercase transition-colors {provider.key_selection === 'first'
+            ? 'bg-raised text-paper shadow-[0_0_0_1px_var(--line)]'
+            : 'text-tertiary hover:text-primary'}"
+          onclick={() => setSelection('first')}
+        >Primary first</button>
+        <button
+          aria-pressed={provider.key_selection === 'round_robin'}
+          class="rounded-[2px] px-3 py-1 font-mono text-[10px] font-medium tracking-[0.07em] uppercase transition-colors {provider.key_selection === 'round_robin'
+            ? 'bg-raised text-paper shadow-[0_0_0_1px_var(--line)]'
+            : 'text-tertiary hover:text-primary'}"
+          onclick={() => setSelection('round_robin')}
+        >Round robin</button>
+      </div>
       <p class="m-0 text-[12.5px] text-tertiary">
-        Requests always start at the primary key and fail over in order.
+        {provider.key_selection === 'round_robin'
+          ? 'Keys rotate per request; failed keys are skipped.'
+          : 'Requests always start at the primary key and fail over in order.'}
       </p>
     </div>
 
@@ -288,16 +352,25 @@
         </tbody>
       </table>
     {/if}
+    {/if}
   </section>
 
   <section use:reveal={{ kind: 'rise', i: 3 }} aria-labelledby="models-h" class="mt-[42px]">
     <div class="sec-head">
       <h2 id="models-h">Models <span class="ml-[5px] font-mono text-[13px] text-accent-ink [vertical-align:3px]">{models.length}</span></h2>
-      <button class="btn btn-sm btn-primary" onclick={() => { editingModel = null; showAddModel = true; }}>Add model</button>
+      {#if provider.builtin}
+        <p class="m-0 text-[12.5px] text-tertiary">Managed by catalog sync — use Sync models above to refresh.</p>
+      {:else}
+        <button class="btn btn-sm btn-primary" onclick={() => { editingModel = null; showAddModel = true; }}>Add model</button>
+      {/if}
     </div>
     {#if models.length === 0}
       <p class="text-[13px] text-tertiary">
-        No models yet. Add the upstream model identifiers clients should reach as <code class="font-mono text-xs">{provider.prefix}/&lt;name&gt;</code>.
+        {#if provider.builtin}
+          No models yet. {#if provider.enabled}Sync models to fetch the current free catalog.{:else}Enable the provider, then sync models.{/if}
+        {:else}
+          No models yet. Add the upstream model identifiers clients should reach as <code class="font-mono text-xs">{provider.prefix}/&lt;name&gt;</code>.
+        {/if}
       </p>
     {:else}
       <table class="table-data">
@@ -316,10 +389,12 @@
                 <button class="linkish" onclick={() => toggleModel(m)} disabled={!!busyModel} aria-busy={busyModel === m.id}>
                   <Busy busy={busyModel === m.id} text={m.enabled ? 'Disable' : 'Enable'} wide="Disable" />
                 </button>
-                <button class="linkish" onclick={() => { editingModel = m; showAddModel = true; }}>Edit</button>
-                <button class="linkish linkish-del" onclick={() => armed.confirm('m' + m.id, () => removeModel(m))}>
-                  <Fit text={armedNow ? 'Confirm?' : 'Delete'} wide="Confirm?" />
-                </button>
+                {#if !provider.builtin}
+                  <button class="linkish" onclick={() => { editingModel = m; showAddModel = true; }}>Edit</button>
+                  <button class="linkish linkish-del" onclick={() => armed.confirm('m' + m.id, () => removeModel(m))}>
+                    <Fit text={armedNow ? 'Confirm?' : 'Delete'} wide="Confirm?" />
+                  </button>
+                {/if}
               </td>
             </tr>
           {/each}
@@ -342,6 +417,9 @@
     onclose={() => (editingKey = null)}
     onsaved={loadDetail}
   />
+{/if}
+{#if provider && showImport}
+  <BatchImportModal providerId={provider.id} onclose={() => (showImport = false)} onsaved={loadDetail} />
 {/if}
 {#if provider && showAddModel}
   <ModelModal

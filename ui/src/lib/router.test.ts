@@ -21,6 +21,20 @@ test('Routing Model: /login routes to login', () => {
   assert.deepEqual(parseRoute('/login/'), { name: 'login' });
 });
 
+test('Routing Model: /groups and group detail routes', () => {
+  assert.deepEqual(parseRoute('/groups'), { name: 'groups' });
+  assert.deepEqual(parseRoute('/groups/'), { name: 'groups' });
+  assert.deepEqual(parseRoute('/groups/1'), { name: 'group-detail', groupId: 1 });
+  assert.deepEqual(parseRoute('/groups/123'), { name: 'group-detail', groupId: 123 });
+  assert.deepEqual(parseRoute('/groups/0'), { name: 'not-found', path: '/groups/0' });
+  assert.deepEqual(parseRoute('/groups/abc'), { name: 'not-found', path: '/groups/abc' });
+});
+
+test('Routing Model: /monitoring routes to monitoring', () => {
+  assert.deepEqual(parseRoute('/monitoring'), { name: 'monitoring' });
+  assert.deepEqual(parseRoute('/monitoring/'), { name: 'monitoring' });
+});
+
 test('Routing Constraints: no global /models route', () => {
   assert.deepEqual(parseRoute('/models'), { name: 'not-found', path: '/models' });
   assert.deepEqual(parseRoute('/models/123'), { name: 'not-found', path: '/models/123' });
@@ -31,8 +45,6 @@ test('Unknown routes map to not-found', () => {
   assert.deepEqual(parseRoute('/providers/invalid-id'), { name: 'not-found', path: '/providers/invalid-id' });
   assert.deepEqual(parseRoute('/providers/0'), { name: 'not-found', path: '/providers/0' });
   assert.deepEqual(parseRoute('/providers/-1'), { name: 'not-found', path: '/providers/-1' });
-  assert.deepEqual(parseRoute('/groups'), { name: 'not-found', path: '/groups' });
-  assert.deepEqual(parseRoute('/monitoring'), { name: 'not-found', path: '/monitoring' });
 });
 
 test('Authentication: redirect target extraction', () => {

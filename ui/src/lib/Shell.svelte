@@ -19,6 +19,8 @@
 
   const isConnections = $derived(router.route.name === 'connections');
   const isProviders = $derived(router.route.name === 'providers' || router.route.name === 'provider-detail');
+  const isGroups = $derived(router.route.name === 'groups' || router.route.name === 'group-detail');
+  const isMonitoring = $derived(router.route.name === 'monitoring');
 
   async function signOut() {
     try {
@@ -77,6 +79,31 @@
         {#if expanded}
           <span class="count rounded-full bg-well px-[7px] py-px font-mono text-[10.5px] text-tertiary">{store.providers.length}</span>
         {/if}
+      </a>
+      <a
+        href="/groups"
+        class="nav-item {isGroups ? 'nav-item-active' : ''}"
+        aria-current={isGroups ? 'page' : undefined}
+        title="Groups"
+      >
+        <span class="flex min-w-0 items-center gap-2.5">
+          <span class="grid size-5 shrink-0 place-items-center"><Icon name="groups" size={18} /></span>
+          {#if expanded}<span class="truncate" in:quickFade={{ duration: 160 }}>Groups</span>{/if}
+        </span>
+        {#if expanded}
+          <span class="count rounded-full bg-well px-[7px] py-px font-mono text-[10.5px] text-tertiary">{store.groups.length}</span>
+        {/if}
+      </a>
+      <a
+        href="/monitoring"
+        class="nav-item {isMonitoring ? 'nav-item-active' : ''}"
+        aria-current={isMonitoring ? 'page' : undefined}
+        title="Monitoring"
+      >
+        <span class="flex min-w-0 items-center gap-2.5">
+          <span class="grid size-5 shrink-0 place-items-center"><Icon name="monitoring" size={18} /></span>
+          {#if expanded}<span class="truncate" in:quickFade={{ duration: 160 }}>Monitoring</span>{/if}
+        </span>
       </a>
     </div>
 

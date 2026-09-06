@@ -2,6 +2,9 @@ export type Route =
   | { name: 'connections' }
   | { name: 'providers' }
   | { name: 'provider-detail'; providerId: number }
+  | { name: 'groups' }
+  | { name: 'group-detail'; groupId: number }
+  | { name: 'monitoring' }
   | { name: 'login' }
   | { name: 'not-found'; path: string };
 
@@ -40,6 +43,22 @@ export function parseRoute(pathname: string): Route {
     if (providerId > 0) {
       return { name: 'provider-detail', providerId };
     }
+  }
+
+  if (p === '/groups') {
+    return { name: 'groups' };
+  }
+
+  const groupMatch = p.match(/^\/groups\/(\d+)$/);
+  if (groupMatch) {
+    const groupId = parseInt(groupMatch[1], 10);
+    if (groupId > 0) {
+      return { name: 'group-detail', groupId };
+    }
+  }
+
+  if (p === '/monitoring') {
+    return { name: 'monitoring' };
   }
 
   return { name: 'not-found', path: pathname };

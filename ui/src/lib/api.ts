@@ -72,6 +72,176 @@ export interface ModelInput {
   enabled: boolean;
 }
 
+export interface Group {
+  id: number;
+  name: string;
+  selection: KeySelection;
+  enabled: boolean;
+  member_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupMember {
+  id: number;
+  group_id: number;
+  model_id: number;
+  position: number;
+  enabled: boolean;
+  public_id: string;
+  provider: string;
+  prefix: string;
+  model_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GroupInput {
+  name: string;
+  selection: KeySelection;
+  enabled: boolean;
+}
+
+export function groupInput(g: Group, overrides: Partial<GroupInput> = {}): GroupInput {
+  return { name: g.name, selection: g.selection, enabled: g.enabled, ...overrides };
+}
+
+export interface ImportEntry {
+  line_number: number;
+  name: string;
+  masked_key: string;
+  valid: boolean;
+  error?: string;
+}
+
+export interface ImportResult {
+  total: number;
+  valid: number;
+  invalid: number;
+  entries: ImportEntry[];
+}
+
+export type MonitorRange = 'daily' | 'monthly' | 'yearly';
+export type MonitorOutcome = 'success' | 'failed' | 'cancelled';
+
+export interface MonitorFilters {
+  range: MonitorRange;
+  keyId: string;
+  provider: string;
+  model: string;
+  protocol: '' | ProviderType;
+  group: string;
+  outcome: '' | MonitorOutcome;
+  stream: '' | 'true' | 'false';
+}
+
+export interface MonitorAttempt {
+  number: number;
+  provider_name: string;
+  provider_prefix: string;
+  provider_type: string;
+  upstream_model: string;
+  credential_id: number | null;
+  http_status: number | null;
+  success: boolean;
+  error_category: string;
+  duration_ms: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+}
+
+export interface MonitorRecord {
+  request_id: string;
+  protocol: string;
+  ts: string;
+  key_id: number | null;
+  key_name: string | null;
+  model: string;
+  resolved_model: string | null;
+  served_model: string | null;
+  group_id: number | null;
+  group_name: string | null;
+  provider: string;
+  http_status: number | null;
+  error: string;
+  cancelled: boolean;
+  stream: boolean;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  total_tokens: number | null;
+  latency_ms: number | null;
+  ttft_ms: number | null;
+  upstream_ms: number | null;
+  attempts: MonitorAttempt[];
+}
+
+export interface MonitorStarted {
+  request_id: string;
+  ts: string;
+  key_id?: number | null;
+  key_name?: string | null;
+  model: string;
+  protocol: string;
+  stream: boolean;
+  provider?: string;
+  upstream_model?: string;
+  resolved_model?: string;
+  group_name?: string;
+}
+
+export interface MonitorTotals {
+  requests: number;
+  succeeded: number;
+  failed: number;
+  cancelled: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  avg_latency_ms: number | null;
+  success_rate: number | null;
+}
+
+export interface SummaryResult {
+  range: MonitorRange;
+  start: string;
+  end: string;
+  interval: 'hour' | 'day' | 'month';
+  current: MonitorTotals;
+  previous: MonitorTotals;
+}
+
+export interface MonitorBucket {
+  t: string;
+  requests: number;
+  succeeded: number;
+  failed: number;
+  cancelled: number;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  avg_latency_ms: number | null;
+}
+
+export interface RequestPage {
+  items: MonitorRecord[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export const MONITORING_EVENTS_URL = '/api/monitoring/events';
+
+export function monitorQuery(f: MonitorFilters): string {
+  const p = new URLSearchParams({ range: f.range });
+  if (f.keyId) p.set('key_id', f.keyId);
+  if (f.provider) p.set('provider', f.provider);
+  if (f.model) p.set('model', f.model);
+  if (f.protocol) p.set('protocol', f.protocol);
+  if (f.group) p.set('group', f.group);
+  if (f.outcome) p.set('status', f.outcome);
+  if (f.stream) p.set('stream', f.stream);
+  return p.toString();
+}
+
 export function providerInput(p: Provider, overrides: Partial<ProviderInput> = {}): ProviderInput {
   return {
     name: p.name,
@@ -88,6 +258,13 @@ export interface TestResult {
   ok?: boolean;
   message?: string;
   models?: string[];
+}
+
+export interface OpenCodeSyncSummary {
+  catalog: number;
+  free: number;
+  added: number;
+  disabled: number;
 }
 
 export interface CreatedKeyResponse {
@@ -159,6 +336,8 @@ export const api = {
   deleteProvider: (id: number) => request<void>(`/api/providers/${id}`, { method: 'DELETE' }),
   testProvider: (id: number) =>
     request<TestResult>(`/api/providers/${id}/test`, { method: 'POST' }),
+  syncProvider: (id: number) =>
+    request<OpenCodeSyncSummary>(`/api/providers/${id}/sync`, { method: 'POST' }),
 
   providerKeys: (providerId: number) =>
     request<ProviderKey[]>(`/api/providers/${providerId}/keys`),
@@ -166,6 +345,11 @@ export const api = {
     request<CreatedProviderKeyResponse>(`/api/providers/${providerId}/keys`, {
       method: 'POST',
       body: JSON.stringify(input),
+    }),
+  importProviderKeys: (providerId: number, text: string, preview: boolean) =>
+    request<ImportResult>(`/api/providers/${providerId}/keys/import`, {
+      method: 'POST',
+      body: JSON.stringify({ text, preview }),
     }),
   updateProviderKey: (providerId: number, keyId: number, input: ProviderKeyUpdateInput) =>
     request<ProviderKey>(`/api/providers/${providerId}/keys/${keyId}`, {
@@ -190,8 +374,48 @@ export const api = {
     request<Model>(`/api/models/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
   deleteModel: (id: number) => request<void>(`/api/models/${id}`, { method: 'DELETE' }),
 
+  groups: () => request<Group[]>('/api/groups'),
+  getGroup: (id: number) => request<Group>(`/api/groups/${id}`),
+  createGroup: (input: GroupInput) =>
+    request<Group>('/api/groups', { method: 'POST', body: JSON.stringify(input) }),
+  updateGroup: (id: number, input: GroupInput) =>
+    request<Group>(`/api/groups/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  deleteGroup: (id: number) => request<void>(`/api/groups/${id}`, { method: 'DELETE' }),
+  groupMembers: (id: number) => request<GroupMember[]>(`/api/groups/${id}/members`),
+  addGroupMember: (id: number, modelId: number) =>
+    request<GroupMember>(`/api/groups/${id}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ model_id: modelId }),
+    }),
+  updateGroupMember: (id: number, memberId: number, enabled: boolean) =>
+    request<GroupMember>(`/api/groups/${id}/members/${memberId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ enabled }),
+    }),
+  deleteGroupMember: (id: number, memberId: number) =>
+    request<void>(`/api/groups/${id}/members/${memberId}`, { method: 'DELETE' }),
+  reorderGroupMembers: (id: number, memberIds: number[]) =>
+    request<GroupMember[]>(`/api/groups/${id}/members/order`, {
+      method: 'POST',
+      body: JSON.stringify({ member_ids: memberIds }),
+    }),
+  setGroupSelection: (id: number, selection: KeySelection) =>
+    request<Group>(`/api/groups/${id}/selection`, {
+      method: 'POST',
+      body: JSON.stringify({ selection }),
+    }),
+
   keys: () => request<ApiKey[]>('/api/keys'),
   createKey: (name: string) =>
     request<CreatedKeyResponse>('/api/keys', { method: 'POST', body: JSON.stringify({ name }) }),
   revokeKey: (id: number) => request<void>(`/api/keys/${id}/revoke`, { method: 'POST' }),
+
+  monitoringSummary: (f: MonitorFilters) =>
+    request<SummaryResult>(`/api/monitoring/summary?${monitorQuery(f)}`),
+  monitoringTimeseries: (f: MonitorFilters) =>
+    request<{ buckets: MonitorBucket[] }>(`/api/monitoring/timeseries?${monitorQuery(f)}`),
+  monitoringRequests: (f: MonitorFilters, page: number, pageSize = 25) =>
+    request<RequestPage>(
+      `/api/monitoring/requests?${monitorQuery(f)}&page=${page}&page_size=${pageSize}`,
+    ),
 };
