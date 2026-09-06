@@ -2,12 +2,12 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { cubicOut } from 'svelte/easing';
-  import { api } from './lib/api';
+  import { api, setUnauthorizedHandler } from './lib/api';
   import { app, store } from './lib/store.svelte';
   import { router, initRouter, navigate, getSafeRedirect } from './lib/router.svelte';
   import { theme } from './lib/theme.svelte';
   import { reducedMotion } from './lib/motion.svelte';
-  import { morphState, setMorphElement } from './lib/authMorph.svelte';
+  import { morphState, setMorphElement, setAuthenticated } from './lib/authMorph.svelte';
   import Login from './lib/Login.svelte';
   import Shell from './lib/Shell.svelte';
   import Providers from './lib/pages/Providers.svelte';
@@ -20,7 +20,17 @@
 
   let ready = $state(false);
 
-  onMount(() => initRouter());
+  onMount(() => {
+    initRouter();
+    // Expired/revoked sessions boot back to login instead of stranding
+    // the workspace on failing fetches. api.request skips this for the
+    // login call itself, so bad passwords still surface inline.
+    setUnauthorizedHandler(() => {
+      if (!app.authenticated) return;
+      navigate('/login?redirect=' + encodeURIComponent(router.path + (router.search || '')), { replace: true });
+      setAuthenticated(false);
+    });
+  });
 
   $effect(() => {
     api
