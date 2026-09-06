@@ -55,9 +55,12 @@ over. Anything a stock client can express in chat semantics survives intact.
 
 Pogu ships a permanent, disabled-by-default **OpenCode Free** provider
 (`oc`) that needs no API key. Enable it and pogu syncs the live free-model
-catalog into routable models automatically (`POST /api/providers/{id}/sync`
-re-syncs on demand). The provider cannot be deleted, only disabled; its
-models are sync-managed.
+catalog into routable models automatically — a weekly background sync, or
+`POST /api/providers/{id}/sync` (also `pogu provider sync`) to refresh on
+demand. The provider cannot be deleted, only disabled; its
+models are sync-managed. The free-model set and per-model wire schemes come
+from the Zen docs page (cached under `data/`); if the docs cannot be fetched
+the sync fails loudly and changes nothing.
 
 ## Requirements
 
@@ -190,7 +193,9 @@ directory (mode 0600) and use the same application logic as the web API — no
 admin password required, but only accessible to the local user.
 
 `POGU_DATA_DIR` may be set instead of passing `--data-dir`; `POGU_ADMIN_PASSWORD`
-can replace `--password` during init.
+can replace `--password` during init. `POGU_OPENCODE_DOCS_URL` overrides the
+Zen docs source used for free-model discovery (defaults to the upstream docs
+page).
 
 ## Data layout
 
@@ -200,6 +205,7 @@ data/
   pogu.db       SQLite database (providers, models, key hashes, sessions,
                 request telemetry)
   master.key    256-bit master encryption key (0600)
+  opencode-docs-cache.json  cached Zen docs free-model set (refreshed by sync)
   pogu.sock     daemon control socket (while serving)
 ```
 
