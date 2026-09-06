@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strconv"
 	"sync"
 
 	"github.com/nawocci/pogu/internal/crypto"
@@ -15,14 +16,14 @@ type Service struct {
 	OpenCodeCatalogURL string
 
 	rrMu      sync.Mutex
-	rrCursors map[int64]uint64
+	rrCursors map[string]uint64
 }
 
 func New(st *store.Store, masterKey []byte) *Service {
 	s := &Service{
 		Store:     st,
 		MasterKey: masterKey,
-		rrCursors: make(map[int64]uint64),
+		rrCursors: make(map[string]uint64),
 	}
 	s.upgradeLegacyKeyFingerprints(context.Background())
 	return s
@@ -57,17 +58,18 @@ func (s *Service) upgradeLegacyKeyFingerprints(ctx context.Context) {
 	}
 }
 
-func (s *Service) nextRoundRobinCursor(id int64, n int) int {
+func (s *Service) nextRoundRobinCursor(domain string, id int64, n int) int {
 	if n <= 1 {
 		return 0
 	}
 	s.rrMu.Lock()
 	defer s.rrMu.Unlock()
 	if s.rrCursors == nil {
-		s.rrCursors = make(map[int64]uint64)
+		s.rrCursors = make(map[string]uint64)
 	}
-	curr := s.rrCursors[id]
-	s.rrCursors[id] = curr + 1
+	key := domain + ":" + strconv.FormatInt(id, 10)
+	curr := s.rrCursors[key]
+	s.rrCursors[key] = curr + 1
 	return int(curr % uint64(n))
 }
 

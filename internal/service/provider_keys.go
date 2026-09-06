@@ -256,7 +256,7 @@ func (s *Service) EligibleKeys(ctx context.Context, providerID int64) ([]Provide
 		return nil, nil
 	}
 	if p.KeySelection == KeySelectionRoundRobin && len(enabled) > 1 {
-		cursor := s.nextRoundRobinCursor(providerID, len(enabled))
+		cursor := s.nextRoundRobinCursor("provider", providerID, len(enabled))
 		ordered := make([]ProviderKey, len(enabled))
 		for i := range enabled {
 			ordered[i] = enabled[(cursor+i)%len(enabled)]

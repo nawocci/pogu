@@ -354,7 +354,7 @@ func (s *Service) ResolveGroupTargets(ctx context.Context, name, protocol string
 		return group, nil, ErrNoGroupTargets
 	}
 	if group.Selection == KeySelectionRoundRobin && len(out) > 1 {
-		cursor := s.nextRoundRobinCursor(group.ID, len(out))
+		cursor := s.nextRoundRobinCursor("group", group.ID, len(out))
 		rotated := make([]groupCandidate, len(out))
 		for i := range out {
 			rotated[i] = out[(cursor+i)%len(out)]

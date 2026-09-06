@@ -141,6 +141,50 @@ func TestGroupRoundRobin(t *testing.T) {
 	}
 }
 
+func TestRoundRobinDomainsAreIndependent(t *testing.T) {
+	s, ctx, maID, mbID := groupFixture(t)
+	g, err := s.CreateGroup(ctx, "rr", true, KeySelectionRoundRobin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []int64{maID, mbID} {
+		if _, err := s.AddGroupMember(ctx, g.ID, id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	provs, err := s.ListProviders(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oaID := provs[0].ID
+	if _, err := s.UpdateProvider(ctx, oaID, "A", ProviderOpenAI, "oa", "https://a.test", true, KeySelectionRoundRobin); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.CreateProviderKey(ctx, oaID, "", "sk-a2"); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, _, err := s.ResolveGroupTargets(ctx, "rr", "openai"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	keys, err := s.EligibleKeys(ctx, oaID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sec, _ := s.ProviderKeySecret(ctx, keys[0].ID)
+	if sec != "sk-a" {
+		t.Fatalf("provider cursor polluted by group rotation, head = %q", sec)
+	}
+	_, cands, err := s.ResolveGroupTargets(ctx, "rr", "openai")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cands[0].Route.Model.PublicID != "oa/alpha" {
+		t.Fatalf("group cursor polluted by key rotation, head = %q", cands[0].Route.Model.PublicID)
+	}
+}
+
 func TestKeyRoundRobin(t *testing.T) {
 	s, ctx := testService(t)
 	p, err := s.CreateProvider(ctx, "OA", ProviderOpenAI, "oa", "https://x.test", "sk-1", true, KeySelectionRoundRobin)
