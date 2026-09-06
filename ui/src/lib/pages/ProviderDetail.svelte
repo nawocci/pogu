@@ -245,8 +245,8 @@
       <button class="btn btn-sm" onclick={() => provider && setEnabled(!provider.enabled)} disabled={busyToggle} aria-busy={busyToggle}>
         <Busy busy={busyToggle} text={provider.enabled ? 'Disable' : 'Enable'} wide="Disable" />
       </button>
-      <button class="btn btn-sm" onclick={() => (showEdit = true)}>Edit</button>
       {#if !provider.builtin}
+        <button class="btn btn-sm" onclick={() => (showEdit = true)}>Edit</button>
         <button
           class="btn btn-sm btn-danger"
           class:btn-armed={armed.is('provider')}

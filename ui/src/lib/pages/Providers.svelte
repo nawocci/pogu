@@ -84,8 +84,10 @@
           </span>
           <span class="flex gap-[18px] font-mono text-[11.5px] whitespace-nowrap text-tertiary max-wide:hidden">
             <span title="Native upstream API"><b class="font-semibold text-paper">{typeLabel(p.type)}</b></span>
-            <span><b class="font-semibold text-paper">{p.key_count}</b> key{p.key_count === 1 ? '' : 's'}</span>
-            <span title="Upstream API key selection strategy">{selectionLabel(p.key_selection)}</span>
+            {#if !p.builtin}
+              <span><b class="font-semibold text-paper">{p.key_count}</b> key{p.key_count === 1 ? '' : 's'}</span>
+              <span title="Upstream API key selection strategy">{selectionLabel(p.key_selection)}</span>
+            {/if}
           </span>
           <span class="card-lift">
             <Lamp state={p.enabled ? 'on' : 'off'} label={p.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" />
