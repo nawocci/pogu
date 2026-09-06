@@ -14,6 +14,7 @@ type Service struct {
 	MasterKey []byte
 
 	OpenCodeCatalogURL string
+	OpenCodeDocsURL    string
 
 	rrMu      sync.Mutex
 	rrCursors map[string]uint64
