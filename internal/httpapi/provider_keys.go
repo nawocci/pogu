@@ -85,6 +85,13 @@ func (a *API) updateProviderKey(w http.ResponseWriter, r *http.Request) {
 	enabled := true
 	if in.Enabled != nil {
 		enabled = *in.Enabled
+	} else {
+		current, err := a.Service.GetProviderKey(r.Context(), keyID)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		enabled = current.Enabled
 	}
 	key, err := a.Service.UpdateProviderKey(r.Context(), keyID, in.Name, enabled)
 	if err != nil {

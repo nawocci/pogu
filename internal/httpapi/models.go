@@ -49,6 +49,13 @@ func (a *API) updateModel(w http.ResponseWriter, r *http.Request) {
 	enabled := true
 	if in.Enabled != nil {
 		enabled = *in.Enabled
+	} else {
+		current, err := a.Service.GetModel(r.Context(), id)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		enabled = current.Enabled
 	}
 	m, err := a.Service.UpdateModel(r.Context(), id, in.Name, enabled)
 	if err != nil {

@@ -87,6 +87,13 @@ func (a *API) updateProvider(w http.ResponseWriter, r *http.Request) {
 	enabled := true
 	if in.Enabled != nil {
 		enabled = *in.Enabled
+	} else {
+		current, err := a.Service.GetProvider(r.Context(), id)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		enabled = current.Enabled
 	}
 	p, err := a.Service.UpdateProvider(r.Context(), id, in.Name, in.Type, in.Prefix, in.BaseURL, enabled, in.KeySelection)
 	if err != nil {

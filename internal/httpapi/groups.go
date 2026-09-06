@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/nawocci/pogu/internal/service"
+	"github.com/nawocci/pogu/internal/store"
 )
 
 type groupInput struct {
@@ -66,7 +67,16 @@ func (a *API) updateGroup(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &in) {
 		return
 	}
-	g, err := a.Service.UpdateGroup(r.Context(), id, in.Name, in.enabledOr(true), in.Selection)
+	enabled := in.enabledOr(true)
+	if in.Enabled == nil {
+		current, err := a.Service.GetGroup(r.Context(), id)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		enabled = current.Enabled
+	}
+	g, err := a.Service.UpdateGroup(r.Context(), id, in.Name, enabled, in.Selection)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -136,7 +146,29 @@ func (a *API) updateGroupMember(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &in) {
 		return
 	}
-	m, err := a.Service.UpdateGroupMember(r.Context(), id, memberID, in.Enabled == nil || *in.Enabled)
+	enabled := true
+	if in.Enabled != nil {
+		enabled = *in.Enabled
+	} else {
+		members, err := a.Service.ListGroupMembers(r.Context(), id)
+		if err != nil {
+			writeServiceError(w, err)
+			return
+		}
+		found := false
+		for _, m := range members {
+			if m.ID == memberID {
+				enabled = m.Enabled
+				found = true
+				break
+			}
+		}
+		if !found {
+			writeServiceError(w, store.ErrNotFound)
+			return
+		}
+	}
+	m, err := a.Service.UpdateGroupMember(r.Context(), id, memberID, enabled)
 	if err != nil {
 		writeServiceError(w, err)
 		return

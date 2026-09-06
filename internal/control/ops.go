@@ -43,6 +43,12 @@ func (s *Server) execute(ctx context.Context, r Request) (any, error) {
 		enabled := true
 		if r.Enabled != nil {
 			enabled = *r.Enabled
+		} else {
+			current, err := s.Service.GetProvider(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			enabled = current.Enabled
 		}
 		return s.Service.UpdateProvider(ctx, r.ID, r.Name, r.Type, r.Prefix, r.BaseURL, enabled, r.KeySelection)
 	case "provider.delete":
@@ -86,6 +92,12 @@ func (s *Server) execute(ctx context.Context, r Request) (any, error) {
 		enabled := true
 		if r.Enabled != nil {
 			enabled = *r.Enabled
+		} else {
+			current, err := s.Service.GetProviderKey(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			enabled = current.Enabled
 		}
 		return s.Service.UpdateProviderKey(ctx, r.ID, r.Name, enabled)
 	case "provider_key.delete":
@@ -128,6 +140,12 @@ func (s *Server) execute(ctx context.Context, r Request) (any, error) {
 		enabled := true
 		if r.Enabled != nil {
 			enabled = *r.Enabled
+		} else {
+			current, err := s.Service.GetModel(ctx, r.ID)
+			if err != nil {
+				return nil, err
+			}
+			enabled = current.Enabled
 		}
 		return s.Service.UpdateModel(ctx, r.ID, r.Name, enabled)
 	case "model.delete":
