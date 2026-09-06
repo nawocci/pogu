@@ -282,10 +282,12 @@ func (s *Service) ReorderGroupMembers(ctx context.Context, groupID int64, member
 	for _, m := range members {
 		current[m.ID] = true
 	}
+	seen := make(map[int64]bool, len(memberIDs))
 	for _, id := range memberIDs {
-		if !current[id] {
+		if !current[id] || seen[id] {
 			return fmt.Errorf("%w: member order must include every member exactly once", ErrValidation)
 		}
+		seen[id] = true
 	}
 	tx, err := s.Store.DB.BeginTx(ctx, nil)
 	if err != nil {

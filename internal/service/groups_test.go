@@ -96,6 +96,9 @@ func TestGroupResolution(t *testing.T) {
 	if err := s.ReorderGroupMembers(ctx, g.ID, []int64{members[0].ID}); err == nil {
 		t.Fatal("partial reorder must fail")
 	}
+	if err := s.ReorderGroupMembers(ctx, g.ID, []int64{members[0].ID, members[0].ID}); err == nil {
+		t.Fatal("duplicate reorder must fail")
+	}
 	if err := s.ReorderGroupMembers(ctx, g.ID, []int64{members[1].ID, members[0].ID}); err != nil {
 		t.Fatal(err)
 	}
