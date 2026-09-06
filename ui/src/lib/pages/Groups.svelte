@@ -45,7 +45,7 @@
   const sorted = $derived([...groups].sort((a, b) => a.name.localeCompare(b.name)));
 </script>
 
-<header use:reveal={{ kind: 'rise', i: 0 }} class="mb-8 flex items-end justify-between gap-5">
+<header use:reveal={{ kind: 'rise', i: 0 }} class="mb-8 flex flex-wrap items-end justify-between gap-5">
   <div>
     <p class="mb-4 font-mono text-[11px] tracking-[0.1em] text-accent-ink uppercase">Management</p>
     <h1 class="leading-none">Groups</h1>
@@ -87,7 +87,7 @@
           <span class="card-lift">
             <Lamp state={g.enabled ? 'on' : 'off'} label={g.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" />
           </span>
-          <span class="card-lift flex items-center gap-2">
+          <span class="card-lift flex items-center gap-2 card-actions">
             <button
               class="btn-ghost"
               onclick={() => setEnabled(g, !g.enabled)}

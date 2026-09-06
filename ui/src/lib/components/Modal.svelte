@@ -116,6 +116,13 @@
     }
   }
 
+  @media (width < 50rem) {
+    dialog {
+      max-height: calc(100dvh - 40px);
+      overflow-y: auto;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     dialog[open],
     dialog::backdrop {

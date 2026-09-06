@@ -13,7 +13,7 @@
 </script>
 
 <div
-  class="pointer-events-none absolute right-5 bottom-5 z-60 flex max-h-[min(60dvh,480px)] w-[min(380px,calc(100%-40px))] flex-col justify-end gap-2.5 overflow-hidden max-compact:fixed max-compact:right-3.5 max-compact:bottom-3.5"
+  class="pointer-events-none absolute right-5 bottom-5 z-60 flex max-h-[min(60dvh,480px)] w-[min(380px,calc(100%-40px))] flex-col justify-end gap-2.5 overflow-hidden max-compact:fixed max-compact:right-3.5 max-compact:bottom-[calc(4.75rem+env(safe-area-inset-bottom))]"
   aria-live="polite"
 >
   {#each toasts.items as t (t.id)}

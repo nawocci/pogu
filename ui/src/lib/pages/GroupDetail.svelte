@@ -268,7 +268,7 @@
     {#if members.length === 0}
       <p class="text-[13px] text-tertiary">No targets yet. Requests to this group will fail until at least one target is available.</p>
     {:else}
-      <table class="table-data">
+      <table class="table-data table-cards">
         <thead>
           <tr><th>Order</th><th>Target</th><th>Provider</th><th>Status</th><th></th></tr>
         </thead>
@@ -276,7 +276,7 @@
           {#each members as m, i (m.id)}
             {@const armedNow = armed.is('m' + m.id)}
             <tr>
-              <td class="whitespace-nowrap">
+              <td data-label="Order" class="whitespace-nowrap">
                 <span class="font-mono text-[11.5px] text-tertiary">#{i + 1}</span>
                 <button
                   class="btn-ghost btn-ghost-xs ml-1.5"
@@ -291,10 +291,10 @@
                   aria-label="Move down"
                 >↓</button>
               </td>
-              <td><code class="font-mono text-[12.5px] font-semibold text-paper">{m.public_id}</code></td>
-              <td class="font-mono text-[12px] text-secondary">{m.provider}</td>
-              <td><Lamp state={m.enabled ? 'on' : 'off'} label={m.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" /></td>
-              <td class="text-right whitespace-nowrap">
+              <td data-label="Target"><code class="font-mono text-[12.5px] font-semibold text-paper">{m.public_id}</code></td>
+              <td data-label="Provider" class="font-mono text-[12px] text-secondary">{m.provider}</td>
+              <td data-label="Status"><Lamp state={m.enabled ? 'on' : 'off'} label={m.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" /></td>
+              <td class="cell-actions text-right whitespace-nowrap">
                 <button class="linkish" onclick={() => toggleMember(m)} disabled={busyMember === m.id} aria-busy={busyMember === m.id}>
                   <Busy busy={busyMember === m.id} text={m.enabled ? 'Disable' : 'Enable'} wide="Disable" />
                 </button>

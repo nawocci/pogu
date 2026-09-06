@@ -310,7 +310,7 @@
     {#if keys.length === 0}
       <p class="text-[13px] text-tertiary">No keys yet — requests to this provider will fail without at least one enabled key.</p>
     {:else}
-      <table class="table-data">
+      <table class="table-data table-cards">
         <thead>
           <tr><th>Order</th><th>Name</th><th>Key</th><th>Status</th><th>Last used</th><th>Created</th><th></th></tr>
         </thead>
@@ -318,19 +318,19 @@
           {#each keys as k, i (k.id)}
             {@const armedNow = armed.is('k' + k.id)}
             <tr>
-              <td>
+              <td data-label="Order">
                 {#if i === 0}
                   <span class="inline-flex items-center gap-[6px] rounded-full border border-success-soft bg-success-soft px-1.5 py-px font-mono text-[10px] tracking-[0.07em] text-success-muted uppercase">Primary</span>
                 {:else}
                   <span class="font-mono text-[11.5px] text-tertiary">#{i + 1}</span>
                 {/if}
               </td>
-              <td class="max-w-[220px] truncate font-medium text-paper">{k.name}</td>
-              <td><code class="font-mono text-[12.5px] text-primary">{k.masked_key}</code></td>
-              <td><Lamp state={k.enabled ? 'on' : 'off'} label={k.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" /></td>
-              <td><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.last_used_at)}</time></td>
-              <td><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.created_at)}</time></td>
-              <td class="text-right whitespace-nowrap">
+              <td data-label="Name" class="font-medium text-paper"><span class="block max-w-[220px] truncate">{k.name}</span></td>
+              <td data-label="Key"><code class="font-mono text-[12.5px] text-primary">{k.masked_key}</code></td>
+              <td data-label="Status"><Lamp state={k.enabled ? 'on' : 'off'} label={k.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" /></td>
+              <td data-label="Last used"><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.last_used_at)}</time></td>
+              <td data-label="Created"><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.created_at)}</time></td>
+              <td class="cell-actions text-right whitespace-nowrap">
                 {#if i > 0}
                   <button class="linkish" onclick={() => makePrimary(k)} disabled={!!busyKeyAction} aria-busy={busyKeyAction?.id === k.id && busyKeyAction?.action === 'primary'}>
                     <Busy busy={busyKeyAction?.id === k.id && busyKeyAction?.action === 'primary'} text="Primary" />
@@ -373,7 +373,7 @@
         {/if}
       </p>
     {:else}
-      <table class="table-data">
+      <table class="table-data table-cards">
         <thead>
           <tr><th>Model</th><th>Public ID</th><th>Status</th><th>Updated</th><th></th></tr>
         </thead>
@@ -381,11 +381,11 @@
           {#each models as m (m.id)}
             {@const armedNow = armed.is('m' + m.id)}
             <tr>
-              <td class="font-medium text-paper">{m.name}</td>
-              <td><code class="font-mono text-[12.5px] text-primary">{m.public_id}</code></td>
-              <td><Lamp state={m.enabled ? 'on' : 'off'} label={m.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" /></td>
-              <td><time class="font-mono text-[11px] text-tertiary">{prettyDate(m.updated_at)}</time></td>
-              <td class="text-right whitespace-nowrap">
+              <td data-label="Model" class="font-medium text-paper">{m.name}</td>
+              <td data-label="Public ID"><code class="font-mono text-[12.5px] text-primary">{m.public_id}</code></td>
+              <td data-label="Status"><Lamp state={m.enabled ? 'on' : 'off'} label={m.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" /></td>
+              <td data-label="Updated"><time class="font-mono text-[11px] text-tertiary">{prettyDate(m.updated_at)}</time></td>
+              <td class="cell-actions text-right whitespace-nowrap">
                 <button class="linkish" onclick={() => toggleModel(m)} disabled={!!busyModel} aria-busy={busyModel === m.id}>
                   <Busy busy={busyModel === m.id} text={m.enabled ? 'Disable' : 'Enable'} wide="Disable" />
                 </button>

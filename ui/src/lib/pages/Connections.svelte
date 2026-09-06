@@ -54,7 +54,7 @@
     `  -d '{"model": "provider/model", "max_tokens": 256, "messages": [{"role": "user", "content": "Hello"}]}'`;
 </script>
 
-<header use:reveal={{ kind: 'rise', i: 0 }} class="mb-8 flex items-end justify-between gap-5">
+<header use:reveal={{ kind: 'rise', i: 0 }} class="mb-8 flex flex-wrap items-end justify-between gap-5">
   <div>
     <p class="mb-4 font-mono text-[11px] tracking-[0.1em] text-accent-ink uppercase">Management</p>
     <h1 class="leading-none">Connections</h1>
@@ -83,7 +83,7 @@
       <button class="btn btn-primary" onclick={() => (showCreate = true)}>Create API key</button>
     </div>
   {:else}
-    <table class="table-data">
+    <table class="table-data table-cards">
       <thead>
         <tr><th>Name</th><th>Status</th><th>Created</th><th>Last used</th><th></th></tr>
       </thead>
@@ -91,17 +91,17 @@
         {#each keys as k (k.id)}
           {@const armedNow = armed.is('k' + k.id)}
           <tr>
-            <td class="max-w-[220px] truncate font-medium text-paper">{k.name}</td>
-            <td>
+            <td data-label="Name" class="font-medium text-paper"><span class="block max-w-[220px] truncate">{k.name}</span></td>
+            <td data-label="Status">
               {#if k.revoked_at}
                 <Lamp state="err" label="Revoked" wide="Revoked" />
               {:else}
                 <Lamp state="on" label="Active" wide="Active" />
               {/if}
             </td>
-            <td><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.created_at)}</time></td>
-            <td><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.last_used_at)}</time></td>
-            <td class="text-right whitespace-nowrap">
+            <td data-label="Created"><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.created_at)}</time></td>
+            <td data-label="Last used"><time class="font-mono text-[11px] text-tertiary">{prettyDate(k.last_used_at)}</time></td>
+            <td class="cell-actions text-right whitespace-nowrap">
               {#if !k.revoked_at}
                 <button class="linkish linkish-del" onclick={() => armed.confirm('k' + k.id, () => revoke(k))}>
                   <Fit text={armedNow ? 'Confirm?' : 'Revoke'} wide="Confirm?" />

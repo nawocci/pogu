@@ -697,4 +697,133 @@
         0 0 0 4px var(--accent-ink);
     }
   }
+
+  /* compact (mobile) adaptations. Every rule below is scoped below
+     50rem, so desktop rendering is untouched. */
+  @media (width < 50rem) {
+    h1 {
+      font-size: 30px;
+      line-height: 1.15;
+    }
+
+    input[type='text'],
+    input[type='number'],
+    input[type='url'],
+    input[type='password'],
+    textarea,
+    select {
+      font-size: 16px; /* prevents iOS focus zoom */
+    }
+
+    .sec-head {
+      flex-wrap: wrap;
+      row-gap: 8px;
+    }
+
+    .modal-actions {
+      flex-wrap: wrap;
+    }
+
+    /* entity cards (providers, groups): title row on top, status and
+       actions reflow to a second row */
+    .card-row {
+      grid-template-columns: minmax(0, 1fr) auto;
+      row-gap: 12px;
+    }
+
+    .card-row .card-actions {
+      grid-column: 1 / -1;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      row-gap: 8px;
+    }
+
+    /* stacked table cards: each row becomes a labelled card, headers
+       visually hidden but kept for assistive tech */
+    .table-cards thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .table-cards,
+    .table-cards tbody,
+    .table-cards tr,
+    .table-cards td {
+      display: block;
+    }
+
+    .table-cards tbody tr {
+      background: var(--raised);
+      border: 1px solid var(--line);
+      border-radius: var(--r);
+      padding: 2px 14px 6px;
+      margin-bottom: 10px;
+    }
+
+    .table-cards tbody tr:hover td {
+      background: transparent;
+    }
+
+    .table-cards td {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line-soft);
+      padding: 10px 0;
+    }
+
+    .table-cards td::before {
+      content: attr(data-label);
+      flex-shrink: 0;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--tertiary);
+    }
+
+    .table-cards td > * {
+      min-width: 0;
+    }
+
+    .table-cards td code {
+      overflow-wrap: anywhere;
+    }
+
+    .table-cards .cell-actions {
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      gap: 2px 4px;
+      border-bottom: 0;
+      white-space: normal;
+    }
+
+    .table-cards .cell-actions::before {
+      content: none;
+    }
+
+    .btn-sm {
+      padding-top: 8px;
+      padding-bottom: 8px;
+    }
+
+    .btn-ghost {
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+
+    .linkish {
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+  }
 }

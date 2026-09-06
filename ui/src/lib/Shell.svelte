@@ -39,11 +39,11 @@
 >
   <nav
     aria-label="Primary"
-    class="flex min-w-0 flex-col border-r border-line bg-rail pb-4 max-compact:flex-row max-compact:items-center max-compact:gap-4 max-compact:border-r-0 max-compact:border-b max-compact:px-4 max-compact:py-3"
+    class="flex min-w-0 flex-col border-r border-line bg-rail pb-4 max-compact:hidden"
   >
     <a
       use:reveal={{ kind: 'blip', i: 0 }}
-      class="flex h-[72px] shrink-0 items-center justify-center overflow-hidden no-underline max-compact:h-auto max-compact:p-0 max-compact:py-1"
+      class="flex h-[72px] shrink-0 items-center justify-center overflow-hidden no-underline"
       href="/"
       aria-label="pogu home"
     >
@@ -53,9 +53,9 @@
         <span class="brand-mark brand-mark-p" in:fade={{ duration: 180 }}>P</span>
       {/if}
     </a>
-    <div class="mx-4 border-t border-line-soft max-compact:hidden" aria-hidden="true"></div>
+    <div class="mx-4 border-t border-line-soft" aria-hidden="true"></div>
 
-    <div class="mt-3 flex flex-col gap-0.5 px-2.5 max-compact:mt-0 max-compact:flex-row max-compact:p-0">
+    <div class="mt-3 flex flex-col gap-0.5 px-2.5">
       <a
         href="/"
         class="nav-item {isConnections ? 'nav-item-active' : ''}"
@@ -119,7 +119,7 @@
       </a>
     </div>
 
-    <footer class="mt-auto flex flex-col gap-0.5 px-2.5 pb-1 max-compact:hidden">
+    <footer class="mt-auto flex flex-col gap-0.5 px-2.5 pb-1">
       <button
         class="nav-item {!expanded ? 'justify-center' : ''}"
         onclick={toggleTheme}
@@ -158,9 +158,96 @@
     </footer>
   </nav>
 
-  <main class="min-w-0 overflow-y-auto px-(--content-x) py-12 [scrollbar-gutter:stable] [--content-x:clamp(24px,4vw,64px)] max-compact:overflow-visible max-compact:px-4 max-compact:py-7">
+  <header class="hidden border-b border-line bg-rail px-4 pt-[env(safe-area-inset-top)] max-compact:block max-compact:col-span-full">
+    <div class="flex items-center gap-2 py-3">
+      <a class="flex shrink-0 items-center no-underline" href="/" aria-label="pogu home">
+        <span class="brand-mark">POGU</span>
+      </a>
+      <span class="flex-1" aria-hidden="true"></span>
+      <button
+        class="grid size-10 shrink-0 place-items-center rounded-sm text-tertiary transition-colors hover:bg-hover hover:text-primary"
+        onclick={toggleTheme}
+        aria-label="Switch color theme"
+        title={theme() === 'light' ? 'Switch to dark' : 'Switch to light'}
+      >
+        <Icon name={theme() === 'light' ? 'moon' : 'sun'} size={18} />
+      </button>
+      {#if armed.is('logout')}
+        <button
+          class="btn-ghost shrink-0 border-error-soft text-error-muted"
+          onclick={() => armed.confirm('logout', signOut)}
+          aria-label="Confirm sign out"
+          title="Confirm sign out"
+        >
+          Confirm?
+        </button>
+      {:else}
+        <button
+          class="grid size-10 shrink-0 place-items-center rounded-sm text-tertiary transition-colors hover:bg-hover hover:text-primary"
+          onclick={() => armed.confirm('logout', signOut)}
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <Icon name="signout" size={18} />
+        </button>
+      {/if}
+    </div>
+  </header>
+
+  <main class="min-w-0 overflow-y-auto px-(--content-x) py-12 [scrollbar-gutter:stable] [--content-x:clamp(24px,4vw,64px)] max-compact:overflow-visible max-compact:px-4 max-compact:pt-7 max-compact:pb-[calc(5.5rem+env(safe-area-inset-bottom))] max-compact:col-span-full">
     {@render children()}
   </main>
+
+  <nav
+    aria-label="Primary"
+    class="hidden max-compact:flex fixed inset-x-0 bottom-0 z-40 border-t border-line bg-rail px-2 pb-[env(safe-area-inset-bottom)]"
+  >
+    <a
+      href="/"
+      class="nav-item {isConnections ? 'nav-item-active' : ''} max-compact:flex-1 max-compact:flex-col max-compact:items-center max-compact:justify-center max-compact:gap-0 max-compact:rounded-none max-compact:px-1 max-compact:py-3"
+      aria-current={isConnections ? 'page' : undefined}
+      aria-label="Connections"
+      title="Connections"
+    >
+      <span class="grid size-5 place-items-center"><Icon name="connections" size={20} /></span>
+    </a>
+    <a
+      href="/providers"
+      class="nav-item {isProviders ? 'nav-item-active' : ''} max-compact:flex-1 max-compact:flex-col max-compact:items-center max-compact:justify-center max-compact:gap-0 max-compact:rounded-none max-compact:px-1 max-compact:py-3"
+      aria-current={isProviders ? 'page' : undefined}
+      aria-label="Providers"
+      title="Providers"
+    >
+      <span class="grid size-5 place-items-center"><Icon name="providers" size={20} /></span>
+    </a>
+    <a
+      href="/groups"
+      class="nav-item {isGroups ? 'nav-item-active' : ''} max-compact:flex-1 max-compact:flex-col max-compact:items-center max-compact:justify-center max-compact:gap-0 max-compact:rounded-none max-compact:px-1 max-compact:py-3"
+      aria-current={isGroups ? 'page' : undefined}
+      aria-label="Groups"
+      title="Groups"
+    >
+      <span class="grid size-5 place-items-center"><Icon name="groups" size={20} /></span>
+    </a>
+    <a
+      href="/monitoring"
+      class="nav-item {isMonitoring ? 'nav-item-active' : ''} max-compact:flex-1 max-compact:flex-col max-compact:items-center max-compact:justify-center max-compact:gap-0 max-compact:rounded-none max-compact:px-1 max-compact:py-3"
+      aria-current={isMonitoring ? 'page' : undefined}
+      aria-label="Monitoring"
+      title="Monitoring"
+    >
+      <span class="grid size-5 place-items-center"><Icon name="monitoring" size={20} /></span>
+    </a>
+    <a
+      href="/configurations"
+      class="nav-item {isConfigurations ? 'nav-item-active' : ''} max-compact:flex-1 max-compact:flex-col max-compact:items-center max-compact:justify-center max-compact:gap-0 max-compact:rounded-none max-compact:px-1 max-compact:py-3"
+      aria-current={isConfigurations ? 'page' : undefined}
+      aria-label="Configurations"
+      title="Configurations"
+    >
+      <span class="grid size-5 place-items-center"><Icon name="configurations" size={20} /></span>
+    </a>
+  </nav>
 
   <Toasts />
 </div>

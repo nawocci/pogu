@@ -165,7 +165,7 @@
     aria-controls="{uid}-list"
     {onkeydown}
     onclick={() => (open ? closeDropdown() : openDropdown())}
-    class="dd-trigger flex w-full items-center gap-2 rounded-sm border border-line bg-well transition-colors hover:border-secondary disabled:cursor-wait disabled:opacity-45 {sm
+    class="dd-trigger flex w-full items-center gap-2 rounded-sm border border-line bg-well transition-colors hover:border-secondary disabled:cursor-wait disabled:opacity-45 max-compact:min-h-10 {sm
       ? 'px-2 py-1 font-mono text-[11px]'
       : 'px-3 py-2 font-mono text-[13px]'} {open ? 'dd-open' : ''}"
   >
@@ -201,7 +201,7 @@
               aria-label="Filter options"
               autocomplete="off"
               spellcheck={false}
-              class="min-w-0 flex-1 border-0 bg-transparent px-0 py-1 font-mono text-[12.5px] text-primary shadow-none placeholder:text-muted focus:border-0 focus:shadow-none"
+              class="min-w-0 flex-1 border-0 bg-transparent px-0 py-1 font-mono text-[12.5px] text-primary shadow-none placeholder:text-muted focus:border-0 focus:shadow-none max-compact:text-base"
             />
           </div>
         </div>
@@ -231,7 +231,7 @@
               onmouseenter={() => (active = i)}
               onmousedown={(e) => e.preventDefault()}
               onclick={() => select(opt.value)}
-              class="flex w-full items-center gap-2 rounded-[2px] px-2.5 py-[7px] text-left font-mono text-[12.5px] transition-colors {isSel
+              class="flex w-full items-center gap-2 rounded-[2px] px-2.5 py-[7px] text-left font-mono text-[12.5px] transition-colors max-compact:px-3 max-compact:py-2.5 {isSel
                 ? 'bg-accent-dim text-paper'
                 : i === cursor
                   ? 'bg-hover text-paper'
