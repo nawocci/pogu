@@ -11,7 +11,7 @@ const (
 )
 
 func (t ProviderType) Valid() bool {
-	return t == ProviderOpenAI || t == ProviderAnthropic
+	return t == ProviderOpenAI || t == ProviderOpenAIResponses || t == ProviderAnthropic
 }
 
 type KeySelection string
@@ -35,7 +35,7 @@ const (
 
 func (s Scheme) Valid() bool {
 	switch s {
-	case "", SchemeOpenAI, SchemeAnthropic:
+	case "", SchemeOpenAI, SchemeOpenAIResponses, SchemeAnthropic:
 		return true
 	default:
 		return false
@@ -107,6 +107,45 @@ type APIKey struct {
 	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
 	RevokedAt  *time.Time `json:"revoked_at,omitempty"`
 	CreatedAt  time.Time  `json:"created_at"`
+}
+
+type Group struct {
+	ID          int64        `json:"id"`
+	Name        string       `json:"name"`
+	Selection   KeySelection `json:"selection"`
+	Enabled     bool         `json:"enabled"`
+	MemberCount int          `json:"member_count"`
+	CreatedAt   time.Time    `json:"created_at"`
+	UpdatedAt   time.Time    `json:"updated_at"`
+}
+
+type GroupMember struct {
+	ID        int64     `json:"id"`
+	GroupID   int64     `json:"group_id"`
+	ModelID   int64     `json:"model_id"`
+	Position  int       `json:"position"`
+	Enabled   bool      `json:"enabled"`
+	PublicID  string    `json:"public_id"`
+	Provider  string    `json:"provider"`
+	Prefix    string    `json:"prefix"`
+	ModelName string    `json:"model_name"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ImportEntry struct {
+	LineNumber int    `json:"line_number"`
+	Name       string `json:"name"`
+	MaskedKey  string `json:"masked_key"`
+	Valid      bool   `json:"valid"`
+	Error      string `json:"error,omitempty"`
+}
+
+type ImportResult struct {
+	Total   int           `json:"total"`
+	Valid   int           `json:"valid"`
+	Invalid int           `json:"invalid"`
+	Entries []ImportEntry `json:"entries"`
 }
 
 type Route struct {

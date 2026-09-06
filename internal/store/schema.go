@@ -122,4 +122,27 @@ var schema = []string{
 	schemaModels,
 	schemaClients,
 	schemaTelemetry,
+	schemaGroups,
 }
+
+const schemaGroups = `
+CREATE TABLE IF NOT EXISTS groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  selection TEXT NOT NULL DEFAULT 'first' CHECK (selection IN ('first','round_robin')),
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS group_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  group_id INTEGER NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  model_id INTEGER NOT NULL REFERENCES models(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  UNIQUE (group_id, model_id)
+);
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id, position, id);
+CREATE INDEX IF NOT EXISTS idx_group_members_model ON group_members(model_id)`

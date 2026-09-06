@@ -13,11 +13,11 @@ var (
 	ErrValidation     = errors.New("validation error")
 	ErrUnauthorized   = errors.New("unauthorized")
 	ErrForbidden      = errors.New("forbidden")
-	ErrUnknownRoute   = errors.New("unknown model or group")
+	ErrUnknownRoute   = errors.New("unknown route")
 	ErrAlreadyExists  = errors.New("already exists")
 	ErrNoCredentials  = errors.New("no enabled provider credentials")
 	ErrNoGroupTargets = errors.New("group has no available targets")
-	ErrBuiltin        = errors.New("built-in provider cannot be changed this way")
+	ErrBuiltin        = errors.New("built-in provider is permanent")
 )
 
 var (
@@ -48,7 +48,7 @@ func validateProviderNameTypeURL(name string, typ ProviderType, baseURL string) 
 		return fmt.Errorf("%w: name is required and must be at most 200 characters", ErrValidation)
 	}
 	if !typ.Valid() {
-		return fmt.Errorf("%w: type must be openai or anthropic", ErrValidation)
+		return fmt.Errorf("%w: type must be openai, openai-responses, or anthropic", ErrValidation)
 	}
 	u, err := url.ParseRequestURI(strings.TrimSpace(baseURL))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {

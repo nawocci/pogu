@@ -50,9 +50,6 @@ func (s *Service) CreateProvider(ctx context.Context, name string, typ ProviderT
 		if !keySelection[0].Valid() {
 			return Provider{}, fmt.Errorf("%w: key_selection must be 'first' or 'round_robin'", ErrValidation)
 		}
-		if keySelection[0] == KeySelectionRoundRobin {
-			return Provider{}, fmt.Errorf("%w: round_robin key selection is not available yet", ErrValidation)
-		}
 		ks = keySelection[0]
 	}
 	now := store.Now()
@@ -118,9 +115,6 @@ func (s *Service) UpdateProvider(ctx context.Context, id int64, name string, typ
 	if len(keySelection) > 0 && keySelection[0] != "" {
 		if !keySelection[0].Valid() {
 			return Provider{}, fmt.Errorf("%w: key_selection must be 'first' or 'round_robin'", ErrValidation)
-		}
-		if keySelection[0] == KeySelectionRoundRobin {
-			return Provider{}, fmt.Errorf("%w: round_robin key selection is not available yet", ErrValidation)
 		}
 		ks = keySelection[0]
 	} else {

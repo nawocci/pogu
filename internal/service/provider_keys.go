@@ -238,7 +238,8 @@ func (s *Service) TouchProviderKeyUsed(ctx context.Context, keyID int64) error {
 }
 
 func (s *Service) EligibleKeys(ctx context.Context, providerID int64) ([]ProviderKey, error) {
-	if _, err := s.GetProvider(ctx, providerID); err != nil {
+	p, err := s.GetProvider(ctx, providerID)
+	if err != nil {
 		return nil, err
 	}
 	keys, err := s.ListProviderKeys(ctx, providerID)
@@ -253,6 +254,14 @@ func (s *Service) EligibleKeys(ctx context.Context, providerID int64) ([]Provide
 	}
 	if len(enabled) == 0 {
 		return nil, nil
+	}
+	if p.KeySelection == KeySelectionRoundRobin && len(enabled) > 1 {
+		cursor := s.nextRoundRobinCursor(providerID, len(enabled))
+		ordered := make([]ProviderKey, len(enabled))
+		for i := range enabled {
+			ordered[i] = enabled[(cursor+i)%len(enabled)]
+		}
+		return ordered, nil
 	}
 	return enabled, nil
 }
