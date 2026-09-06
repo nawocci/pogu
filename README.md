@@ -229,9 +229,21 @@ data/
 
 Full CRUD for providers, models, model groups (including member management
 and ordering), and API keys, plus provider connectivity testing, catalog sync
-for the built-in provider, and live/historical monitoring queries. Provider
+for the built-in provider, and live/historical monitoring queries. The
+Configurations page covers the rest: administrator password changes (`POST
+/api/auth/password`, current password required, all sessions rotate) and the
+global system prompt (`GET`/`PUT /api/settings/prompt`). Provider
 credentials are never returned after storage; key secrets are returned only
 at creation.
+
+### Global system prompt
+
+Persistent user-level preferences, like a router-side `AGENTS.md`: when
+enabled, the prompt is appended after the request's own system instructions
+under a `Pogu router preferences` marker (a new first message when the
+request has no system content), on both endpoints and for every model.
+Request content is never modified beyond this append, and telemetry never
+stores prompt text.
 
 ## Request telemetry
 
