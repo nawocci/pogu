@@ -1,0 +1,7 @@
+docs/
+data/
+/pogu
+/ui/node_modules/
+/ui/dist/
+/internal/web/dist/*
+!/internal/web/dist/.gitkeep
