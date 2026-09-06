@@ -121,6 +121,15 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 		rec.recordDirectRoute()
 	}
 
+	if text, enabled, err := a.Service.GetGlobalPrompt(r.Context()); err == nil {
+		if prompt := service.ActivePrompt(text, enabled); prompt != "" {
+			body = provider.InjectChatPrompt(body, prompt)
+			if protocol == "anthropic" {
+				rawBody = provider.InjectAnthropicPrompt(rawBody, prompt)
+			}
+		}
+	}
+
 	var lastProxyErr error
 	lastHTTPStatus := http.StatusBadGateway
 	attemptNum := 0

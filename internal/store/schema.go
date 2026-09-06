@@ -123,7 +123,15 @@ var schema = []string{
 	schemaClients,
 	schemaTelemetry,
 	schemaGroups,
+	schemaSettings,
 }
+
+const schemaSettings = `
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL
+)`
 
 const schemaGroups = `
 CREATE TABLE IF NOT EXISTS groups (
