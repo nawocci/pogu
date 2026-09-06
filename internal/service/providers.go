@@ -102,11 +102,8 @@ func (s *Service) UpdateProvider(ctx context.Context, id int64, name string, typ
 		return Provider{}, err
 	}
 	if existing.Builtin != "" {
-		if prefix != existing.Prefix {
-			return Provider{}, fmt.Errorf("%w: built-in provider prefix cannot be changed", ErrBuiltin)
-		}
-		if err := validateProviderNameTypeURL(name, typ, baseURL); err != nil {
-			return Provider{}, err
+		if name != existing.Name || typ != existing.Type || prefix != existing.Prefix || baseURL != existing.BaseURL {
+			return Provider{}, fmt.Errorf("%w: built-in provider details are managed and cannot be changed", ErrBuiltin)
 		}
 	} else if err := validateProviderInput(name, typ, prefix, baseURL); err != nil {
 		return Provider{}, err
@@ -115,6 +112,9 @@ func (s *Service) UpdateProvider(ctx context.Context, id int64, name string, typ
 	if len(keySelection) > 0 && keySelection[0] != "" {
 		if !keySelection[0].Valid() {
 			return Provider{}, fmt.Errorf("%w: key_selection must be 'first' or 'round_robin'", ErrValidation)
+		}
+		if existing.Builtin != "" && keySelection[0] != existing.KeySelection {
+			return Provider{}, fmt.Errorf("%w: built-in provider details are managed and cannot be changed", ErrBuiltin)
 		}
 		ks = keySelection[0]
 	} else {

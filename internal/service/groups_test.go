@@ -259,6 +259,20 @@ func TestBuiltinAndSync(t *testing.T) {
 	if err := s.DeleteProvider(ctx, b.ID); !errors.Is(err, ErrBuiltin) {
 		t.Fatalf("builtin delete = %v", err)
 	}
+	if _, err := s.UpdateProvider(ctx, b.ID, "Renamed", b.Type, b.Prefix, b.BaseURL, false); !errors.Is(err, ErrBuiltin) {
+		t.Fatalf("builtin rename = %v", err)
+	}
+	if _, err := s.UpdateProvider(ctx, b.ID, b.Name, b.Type, "xx", b.BaseURL, false); !errors.Is(err, ErrBuiltin) {
+		t.Fatalf("builtin prefix change = %v", err)
+	}
+	enabled, err := s.UpdateProvider(ctx, b.ID, b.Name, b.Type, b.Prefix, b.BaseURL, true)
+	if err != nil || !enabled.Enabled {
+		t.Fatalf("builtin enable = %+v, %v", enabled, err)
+	}
+	disabled, err := s.UpdateProvider(ctx, b.ID, b.Name, b.Type, b.Prefix, b.BaseURL, false)
+	if err != nil || disabled.Enabled {
+		t.Fatalf("builtin disable = %+v, %v", disabled, err)
+	}
 	if _, err := s.CreateProvider(ctx, "Squat", ProviderOpenAI, "oc", "https://x.test", "", true); !errors.Is(err, ErrValidation) {
 		t.Fatalf("oc squat = %v", err)
 	}
