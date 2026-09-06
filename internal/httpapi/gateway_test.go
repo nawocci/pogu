@@ -101,18 +101,21 @@ func newE2E(t *testing.T, oa, an *mockUpstream) *e2e {
 		t.Fatal(err)
 	}
 	idOf := map[string]int64{}
-	for name, m := range map[string]*mockUpstream{"OA": oa, "AN": an} {
-		typ := service.ProviderOpenAI
-		if m.protocol == "anthropic" {
-			typ = service.ProviderAnthropic
-		}
-		srv := httptest.NewServer(m.handler())
+	for _, item := range []struct {
+		name string
+		mock *mockUpstream
+		typ  service.ProviderType
+	}{
+		{"OA", oa, service.ProviderOpenAI},
+		{"AN", an, service.ProviderAnthropic},
+	} {
+		srv := httptest.NewServer(item.mock.handler())
 		t.Cleanup(srv.Close)
-		p, err := svc.CreateProvider(ctx, name, typ, strings.ToLower(name), srv.URL, m.key, true)
+		p, err := svc.CreateProvider(ctx, item.name, item.typ, strings.ToLower(item.name), srv.URL, item.mock.key, true)
 		if err != nil {
 			t.Fatal(err)
 		}
-		idOf[name] = p.ID
+		idOf[item.name] = p.ID
 	}
 	if _, err := svc.CreateModel(ctx, idOf["OA"], "alpha", true); err != nil {
 		t.Fatal(err)

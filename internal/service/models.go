@@ -107,18 +107,6 @@ func (s *Service) DeleteModel(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Service) SetModelEnabled(ctx context.Context, id int64, enabled bool) error {
-	result, err := s.Store.DB.ExecContext(ctx, `UPDATE models SET enabled=?,updated_at=? WHERE id=?`, boolInt(enabled), store.Now(), id)
-	if err != nil {
-		return err
-	}
-	n, _ := result.RowsAffected()
-	if n == 0 {
-		return store.ErrNotFound
-	}
-	return nil
-}
-
 func (s *Service) SetModelScheme(ctx context.Context, id int64, scheme string) error {
 	if !ValidModelScheme(scheme) {
 		return fmt.Errorf("%w: unknown model scheme %q", ErrValidation, scheme)

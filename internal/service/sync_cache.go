@@ -67,10 +67,8 @@ func (s *Service) saveDocsCache(docs DocsModels) error {
 	return os.Rename(tmp, path)
 }
 
-// AutoSyncOpenCodeModels is the background-worker entry point. A fresh docs
-// cache avoids refetching the slow-moving docs page on every tick; a stale or
-// missing cache (or an unconfigured cache path) falls back to a full fresh
-// sync. Any failure leaves the database untouched.
+// AutoSyncOpenCodeModels skips the docs fetch while the cache is fresh;
+// any failure leaves the database untouched.
 func (s *Service) AutoSyncOpenCodeModels(ctx context.Context) (OpenCodeSyncSummary, error) {
 	var summary OpenCodeSyncSummary
 	if cached, at, err := s.loadDocsCache(); err == nil && time.Since(at) < openCodeSyncInterval {

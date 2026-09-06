@@ -16,8 +16,6 @@ type Client struct {
 
 func NewClient(path string) *Client { return &Client{Path: path, MaxLineSize: MaxLineSize} }
 
-func Dial(path string) *Client { return NewClient(path) }
-
 func (c *Client) Do(ctx context.Context, req Request) (Response, error) {
 	if c == nil || c.Path == "" {
 		return Response{}, errors.New("control: client socket path is empty")

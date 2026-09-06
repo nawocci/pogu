@@ -197,10 +197,6 @@ func (s *Service) SetProviderKeyPrimary(ctx context.Context, providerID, keyID i
 	return tx.Commit()
 }
 
-func (s *Service) ProviderSecret(ctx context.Context, p Provider) (string, error) {
-	return s.ProviderPrimarySecret(ctx, p.ID)
-}
-
 func (s *Service) ProviderKeySecret(ctx context.Context, keyID int64) (string, error) {
 	var encrypted string
 	if err := s.Store.DB.QueryRowContext(ctx, `SELECT encrypted_secret FROM provider_keys WHERE id=?`, keyID).Scan(&encrypted); err != nil {

@@ -22,9 +22,7 @@ func (s *Service) openCodeDocsURL() string {
 	return OpenCodeDocsURL
 }
 
-// DocsModels is the free-model signal parsed out of the Zen docs page:
-// every model ID the pricing table marks Free, mapped to its endpoint URL
-// from the endpoints table.
+// DocsModels maps pricing-Free model IDs to their endpoints-table URLs.
 type DocsModels struct {
 	Endpoints map[string]string
 }
@@ -111,8 +109,6 @@ func parseOpenCodeDocs(body []byte) (DocsModels, error) {
 	return out, nil
 }
 
-// findMarkdownTable locates the first pipe table following the given ##
-// section and returns its header plus data rows.
 func findMarkdownTable(text, section string) ([]string, [][]string) {
 	idx := strings.Index(text, section)
 	if idx < 0 {
@@ -193,8 +189,7 @@ func isMarkdownSeparator(cells []string) bool {
 	return true
 }
 
-// SchemeForDocsEndpoint maps a docs endpoint URL to the model wire scheme.
-// Unknown or empty endpoints inherit (""), leaving routing to the default.
+// Unknown endpoint shapes inherit ("") rather than error.
 func SchemeForDocsEndpoint(endpoint string) string {
 	lower := strings.ToLower(strings.TrimSpace(strings.Trim(endpoint, "`")))
 	switch {

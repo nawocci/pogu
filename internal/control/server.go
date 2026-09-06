@@ -48,8 +48,6 @@ func New(s *service.Service, tester ...any) *Server {
 	return v
 }
 
-func NewServer(s *service.Service, tester ...any) *Server { return New(s, tester...) }
-
 func (s *Server) Start(path string) error {
 	if s == nil || s.Service == nil {
 		return errors.New("control: service is nil")

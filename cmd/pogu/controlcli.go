@@ -67,10 +67,8 @@ func controlResource(dataDir, resource string, args []string) error {
 	return printJSON(result)
 }
 
-// fillUpdateDefaults makes CLI update operations partial: flags the operator
-// did not pass inherit the stored values instead of resetting them. Without
-// this, `provider update --id 1 --enabled true` would blank the name (and
-// wrongly trip the built-in freeze) just because --name was omitted.
+// fillUpdateDefaults makes CLI updates partial: omitted flags inherit stored
+// values instead of blanking fields (which also tripped the built-in freeze).
 func fillUpdateDefaults(ctx context.Context, client *control.Client, resource string, visited map[string]bool, req *control.Request) error {
 	if !strings.HasSuffix(req.Op, ".update") {
 		return nil
