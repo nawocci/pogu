@@ -1,0 +1,125 @@
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/nawocci/pogu/internal/config"
+	"github.com/nawocci/pogu/internal/control"
+	"github.com/nawocci/pogu/internal/crypto"
+	"github.com/nawocci/pogu/internal/httpapi"
+	"github.com/nawocci/pogu/internal/provider"
+	"github.com/nawocci/pogu/internal/service"
+	"github.com/nawocci/pogu/internal/store"
+	"github.com/nawocci/pogu/internal/telemetry"
+	"github.com/nawocci/pogu/internal/web"
+)
+
+func initCommand(dataDir string, args []string) error {
+	fs := newFlagSet("pogu init")
+	password := os.Getenv("POGU_ADMIN_PASSWORD")
+	fs.StringVar(&password, "password", password, "administrator password")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if password == "" {
+		return errors.New("--password or POGU_ADMIN_PASSWORD is required")
+	}
+	cfg := config.Default(dataDir)
+	if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
+		return fmt.Errorf("create data directory: %w", err)
+	}
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	key, err := crypto.LoadOrCreateKey(cfg.MasterKeyFile)
+	if err != nil {
+		return err
+	}
+	st, err := store.Open(cfg.DatabaseFile)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	svc := service.New(st, key)
+	if err := svc.InitializeAdmin(context.Background(), password); err != nil {
+		return err
+	}
+	fmt.Printf("initialized data directory %s\n", cfg.DataDir)
+	return nil
+}
+
+func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service, error) {
+	cfg, err := config.Load(dataDir)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+	key, err := crypto.LoadKey(cfg.MasterKeyFile)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+	st, err := store.Open(cfg.DatabaseFile)
+	if err != nil {
+		return config.Config{}, nil, nil, err
+	}
+	svc := service.New(st, key)
+	return cfg, st, svc, nil
+}
+
+func serveCommand(dataDir string, args []string) error {
+	fs := newFlagSet("pogu serve")
+	listen := ""
+	fs.StringVar(&listen, "listen", "", "HTTP listen address")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	cfg, st, svc, err := openRuntime(dataDir)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	if listen != "" {
+		cfg.Listen = listen
+	}
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	upstream := provider.NewClient()
+	controlServer := control.New(svc, upstream)
+	controlServer.Telemetry = telemetry.NewRecorder(svc.Store.DB)
+	if err := controlServer.Start(cfg.ControlSock); err != nil {
+		return err
+	}
+	defer controlServer.Close()
+	api := httpapi.New(svc, logger)
+	server := &http.Server{
+		Addr:              cfg.Listen,
+		Handler:           api.Handler(web.Handler()),
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+	logger.Info("server starting", "addr", cfg.Listen, "control_socket", cfg.ControlSock, "data_dir", cfg.DataDir)
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- server.ListenAndServe() }()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	select {
+	case err := <-serveErr:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			return err
+		}
+		return nil
+	}
+}

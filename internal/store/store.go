@@ -84,9 +84,13 @@ func Now() string {
 	return time.Now().UTC().Format(time.RFC3339Nano)
 }
 
-func NullTime(t *time.Time) any {
-	if t == nil {
+func NullTime(ns sql.NullString) *time.Time {
+	if !ns.Valid {
 		return nil
 	}
-	return t.UTC().Format(time.RFC3339Nano)
+	t, err := time.Parse(time.RFC3339Nano, ns.String)
+	if err != nil {
+		return nil
+	}
+	return &t
 }

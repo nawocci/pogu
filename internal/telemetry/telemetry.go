@@ -5,8 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"errors"
-	"net/http"
+	"fmt"
 	"time"
 )
 
@@ -19,42 +18,26 @@ const (
 type ErrorCategory string
 
 const (
-	ErrorNone            ErrorCategory = ""
-	ErrorAuthFailure     ErrorCategory = "auth_failure"
-	ErrorRateLimit       ErrorCategory = "rate_limit"
-	ErrorUpstream        ErrorCategory = "upstream_error"
-	ErrorUpstreamFailure ErrorCategory = "upstream_failure"
-	ErrorConnection      ErrorCategory = "connection_failure"
-	ErrorTimeout         ErrorCategory = "timeout"
-	ErrorCanceled        ErrorCategory = "canceled"
-	ErrorRouting         ErrorCategory = "routing_failure"
-	ErrorBadRequest      ErrorCategory = "bad_request"
-	ErrorInternal        ErrorCategory = "internal_error"
+	ErrNone       ErrorCategory = ""
+	ErrAuth       ErrorCategory = "auth_failure"
+	ErrRateLimit  ErrorCategory = "rate_limit"
+	ErrUpstream   ErrorCategory = "upstream_error"
+	ErrServer     ErrorCategory = "upstream_failure"
+	ErrConnection ErrorCategory = "connection_failure"
+	ErrTimeout    ErrorCategory = "timeout"
+	ErrCanceled   ErrorCategory = "canceled"
+	ErrRouting    ErrorCategory = "routing_failure"
+	ErrBadRequest ErrorCategory = "bad_request"
+	ErrInternal   ErrorCategory = "internal_error"
 )
 
-func CategoryForStatus(status int) ErrorCategory {
-	switch status {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return ErrorAuthFailure
-	case http.StatusTooManyRequests:
-		return ErrorRateLimit
-	default:
-		if status >= 500 {
-			return ErrorUpstreamFailure
-		}
-		return ErrorUpstream
-	}
-}
-
 type TokenUsage struct {
-	Input  *int64 `json:"input_tokens"`
-	Output *int64 `json:"output_tokens"`
-	Total  *int64 `json:"total_tokens"`
+	Input  *int64
+	Output *int64
+	Total  *int64
 }
 
-func (u TokenUsage) Empty() bool {
-	return u.Input == nil && u.Output == nil && u.Total == nil
-}
+func (u TokenUsage) Empty() bool { return u.Input == nil && u.Output == nil && u.Total == nil }
 
 type Request struct {
 	ID            string
@@ -98,51 +81,31 @@ type Attempt struct {
 }
 
 type RequestWithAttempts struct {
-	Request  Request   `json:"request"`
-	Attempts []Attempt `json:"attempts"`
+	Request
+	Attempts []Attempt
 }
 
 type Recorder struct {
 	db *sql.DB
 }
 
-func NewRecorder(db *sql.DB) *Recorder {
-	return &Recorder{db: db}
+func NewRecorder(db *sql.DB) *Recorder { return &Recorder{db: db} }
+
+const writeTimeout = 5 * time.Second
+
+func writeCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), writeTimeout)
 }
 
-func NewID() string {
-	var b [16]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		now := time.Now().UnixNano()
-		return hex.EncodeToString([]byte{
-			byte(now >> 56), byte(now >> 48), byte(now >> 40), byte(now >> 32),
-			byte(now >> 24), byte(now >> 16), byte(now >> 8), byte(now),
-			byte(now >> 56), byte(now >> 48), byte(now >> 40), byte(now >> 32),
-			byte(now >> 24), byte(now >> 16), byte(now >> 8), byte(now),
-		})
+func NewID() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", fmt.Errorf("generate request id: %w", err)
 	}
-	return hex.EncodeToString(b[:])
-}
-
-func (r *Recorder) ctx() (context.Context, context.CancelFunc) {
-	return context.WithTimeout(context.Background(), 5*time.Second)
-}
-
-func boolInt(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
+	return hex.EncodeToString(buf), nil
 }
 
 func nullInt64(v *int64) any {
-	if v == nil {
-		return nil
-	}
-	return *v
-}
-
-func nullInt(v *int) any {
 	if v == nil {
 		return nil
 	}
@@ -156,6 +119,20 @@ func nullString(v *string) any {
 	return *v
 }
 
+func nullInt(v *int) any {
+	if v == nil {
+		return nil
+	}
+	return *v
+}
+
+func boolInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
+}
+
 func durationMS(start, end time.Time) int64 {
 	if end.Before(start) {
 		return 0
@@ -163,131 +140,104 @@ func durationMS(start, end time.Time) int64 {
 	return end.Sub(start).Milliseconds()
 }
 
-func (r *Recorder) StartRequest(req Request, first Attempt) {
-	if r == nil || r.db == nil {
-		return
-	}
-	ctx, cancel := r.ctx()
+func (r *Recorder) StartRequest(req *Request, attempt *Attempt) error {
+	ctx, cancel := writeCtx()
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return
+		return fmt.Errorf("telemetry: begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO telemetry_requests(id, protocol, public_model, streaming, client_key_id, client_key_name,
-			status, started_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
-		req.ID, req.Protocol, req.PublicModel, boolInt(req.Streaming),
-		nullInt64(req.ClientKeyID), nullString(req.ClientKeyName),
-		StatusInProgress, req.StartedAt.UTC().Format(time.RFC3339Nano))
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO telemetry_requests(id,protocol,public_model,resolved_model,group_id,group_name,streaming,client_key_id,client_key_name,status,started_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+		req.ID, req.Protocol, req.PublicModel, nullString(req.ResolvedModel), nullInt64(req.GroupID), nullString(req.GroupName),
+		boolInt(req.Streaming), req.ClientKeyID, nullString(req.ClientKeyName), StatusInProgress,
+		req.StartedAt.UTC().Format(time.RFC3339Nano))
 	if err != nil {
-		return
+		return fmt.Errorf("telemetry: insert request: %w", err)
 	}
-	if err := insertAttempt(ctx, tx, req.ID, first); err != nil {
-		return
+	if err := insertAttempt(ctx, tx, attempt); err != nil {
+		return err
 	}
-	_ = tx.Commit()
+	return tx.Commit()
 }
 
-func insertAttempt(ctx context.Context, tx *sql.Tx, requestID string, att Attempt) error {
-	_, err := tx.ExecContext(ctx, `
-		INSERT INTO telemetry_attempts(request_id, attempt_number, provider_id, provider_name, provider_prefix,
-			provider_type, model_id, upstream_model, credential_id, started_at, success)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
-		requestID, att.Number, nullInt64(att.ProviderID), att.ProviderName, att.ProviderPrefix,
-		att.ProviderType, nullInt64(att.ModelID), att.UpstreamModel, nullInt64(att.CredentialID),
-		att.StartedAt.UTC().Format(time.RFC3339Nano))
-	return err
-}
-
-func (r *Recorder) RecordResolution(id string, resolved *string, groupID *int64, groupName *string) {
-	if r == nil || r.db == nil {
-		return
-	}
-	ctx, cancel := r.ctx()
+func (r *Recorder) RecordResolution(id string, groupID *int64, groupName *string, resolvedModel string) error {
+	ctx, cancel := writeCtx()
 	defer cancel()
-	_, _ = r.db.ExecContext(ctx,
+	_, err := r.db.ExecContext(ctx,
 		`UPDATE telemetry_requests SET resolved_model=?, group_id=?, group_name=? WHERE id=?`,
-		nullString(resolved), nullInt64(groupID), nullString(groupName), id)
+		resolvedModel, nullInt64(groupID), nullString(groupName), id)
+	if err != nil {
+		return fmt.Errorf("telemetry: record resolution: %w", err)
+	}
+	return nil
 }
 
-func (r *Recorder) StartAttempt(att Attempt) {
-	if r == nil || r.db == nil {
-		return
-	}
-	ctx, cancel := r.ctx()
+func (r *Recorder) StartAttempt(attempt *Attempt) error {
+	ctx, cancel := writeCtx()
 	defer cancel()
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return
+		return fmt.Errorf("telemetry: begin transaction: %w", err)
 	}
 	defer tx.Rollback()
-	if err := insertAttempt(ctx, tx, att.RequestID, att); err != nil {
-		return
+	if err := insertAttempt(ctx, tx, attempt); err != nil {
+		return err
 	}
-	_ = tx.Commit()
+	return tx.Commit()
 }
 
-func (r *Recorder) FinishAttemptWithTiming(requestID string, number int, status *int, success bool, category ErrorCategory, usage TokenUsage, started, completed time.Time) {
-	if r == nil || r.db == nil {
-		return
-	}
-	ctx, cancel := r.ctx()
+func (r *Recorder) FinishRequest(id string, status string, httpStatus *int, category ErrorCategory, usage TokenUsage, ttftMS, upstreamMS *int64, servedModel *string, completedAt time.Time) error {
+	ctx, cancel := writeCtx()
 	defer cancel()
-	d := durationMS(started, completed)
-	_, _ = r.db.ExecContext(ctx, `
-		UPDATE telemetry_attempts SET completed_at=?, duration_ms=?, http_status=?, success=?,
-			error_category=?, input_tokens=?, output_tokens=?, total_tokens=?
-		WHERE request_id=? AND attempt_number=?`,
-		completed.UTC().Format(time.RFC3339Nano), d, nullInt(status), boolInt(success),
-		string(category), nullInt64(usage.Input), nullInt64(usage.Output), nullInt64(usage.Total),
-		requestID, number)
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE telemetry_requests SET status=?, http_status=?, error_category=?, input_tokens=?, output_tokens=?, total_tokens=?, ttft_ms=?, upstream_ms=?, served_model=?, completed_at=?, duration_ms=? WHERE id=?`,
+		status, nullInt(httpStatus), category, nullInt64(usage.Input), nullInt64(usage.Output), nullInt64(usage.Total),
+		nullInt64(ttftMS), nullInt64(upstreamMS), nullString(servedModel),
+		completedAt.UTC().Format(time.RFC3339Nano), durationMS(completedAt.Add(-time.Nanosecond), completedAt), id)
+	if err != nil {
+		return fmt.Errorf("telemetry: finish request: %w", err)
+	}
+	return nil
 }
 
-func (r *Recorder) FinishRequestWithTiming(id string, status string, httpStatus *int, category ErrorCategory, usage TokenUsage, ttft, upstream *int64, served *string, started, completed time.Time) {
-	if r == nil || r.db == nil {
-		return
-	}
-	ctx, cancel := r.ctx()
+func (r *Recorder) FinishAttemptWithTiming(requestID string, number int, httpStatus *int, success bool, category ErrorCategory, usage TokenUsage, startedAt, completedAt time.Time) error {
+	ctx, cancel := writeCtx()
 	defer cancel()
-	d := durationMS(started, completed)
-	_, _ = r.db.ExecContext(ctx, `
-		UPDATE telemetry_requests SET status=?, http_status=?, error_category=?,
-			input_tokens=?, output_tokens=?, total_tokens=?,
-			ttft_ms=?, upstream_ms=?, served_model=?, completed_at=?, duration_ms=?
-		WHERE id=?`,
-		status, nullInt(httpStatus), string(category),
-		nullInt64(usage.Input), nullInt64(usage.Output), nullInt64(usage.Total),
-		nullInt64(ttft), nullInt64(upstream), nullString(served),
-		completed.UTC().Format(time.RFC3339Nano), d, id)
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE telemetry_attempts SET http_status=?, success=?, error_category=?, input_tokens=?, output_tokens=?, total_tokens=?, completed_at=?, duration_ms=? WHERE request_id=? AND attempt_number=?`,
+		nullInt(httpStatus), boolInt(success), category, nullInt64(usage.Input), nullInt64(usage.Output), nullInt64(usage.Total),
+		completedAt.UTC().Format(time.RFC3339Nano), durationMS(startedAt, completedAt), requestID, number)
+	if err != nil {
+		return fmt.Errorf("telemetry: finish attempt: %w", err)
+	}
+	return nil
 }
 
-func (r *Recorder) FinishRequest(id string, status string, httpStatus *int, category ErrorCategory, usage TokenUsage) {
-	now := time.Now().UTC()
-	r.FinishRequestWithTiming(id, status, httpStatus, category, usage, nil, nil, nil, now.Add(-time.Nanosecond), now)
-}
-
-func (r *Recorder) List(limit int) ([]RequestWithAttempts, error) {
-	if r == nil || r.db == nil {
-		return nil, errors.New("telemetry is unavailable")
-	}
-	if limit <= 0 {
-		limit = 50
-	}
-	ctx, cancel := r.ctx()
+func (r *Recorder) FinishRequestWithTiming(id string, status string, httpStatus *int, category ErrorCategory, usage TokenUsage, ttftMS, upstreamMS *int64, servedModel *string, startedAt, completedAt time.Time) error {
+	ctx, cancel := writeCtx()
 	defer cancel()
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT id, protocol, public_model, resolved_model, served_model, group_id, group_name,
-			streaming, client_key_id, client_key_name, status, http_status, error_category,
-			started_at, completed_at, duration_ms, ttft_ms, upstream_ms,
-			input_tokens, output_tokens, total_tokens
-		FROM telemetry_requests ORDER BY started_at DESC, id DESC LIMIT ?`, limit)
+	_, err := r.db.ExecContext(ctx,
+		`UPDATE telemetry_requests SET status=?, http_status=?, error_category=?, input_tokens=?, output_tokens=?, total_tokens=?, ttft_ms=?, upstream_ms=?, served_model=?, completed_at=?, duration_ms=? WHERE id=?`,
+		status, nullInt(httpStatus), category, nullInt64(usage.Input), nullInt64(usage.Output), nullInt64(usage.Total),
+		nullInt64(ttftMS), nullInt64(upstreamMS), nullString(servedModel),
+		completedAt.UTC().Format(time.RFC3339Nano), durationMS(startedAt, completedAt), id)
+	if err != nil {
+		return fmt.Errorf("telemetry: finish request: %w", err)
+	}
+	return nil
+}
+
+func (r *Recorder) List(ctx context.Context, limit int) ([]RequestWithAttempts, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id,protocol,public_model,resolved_model,served_model,group_id,group_name,streaming,client_key_id,client_key_name,status,http_status,error_category,started_at,completed_at,duration_ms,ttft_ms,upstream_ms,input_tokens,output_tokens,total_tokens
+		 FROM telemetry_requests ORDER BY started_at DESC, id DESC LIMIT ?`, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []RequestWithAttempts{}
+	var out []RequestWithAttempts
 	for rows.Next() {
 		var req Request
 		var resolved, served, groupName, keyName, completed, category sql.NullString
@@ -302,88 +252,78 @@ func (r *Recorder) List(limit int) ([]RequestWithAttempts, error) {
 			&started, &completed, &duration, &ttft, &upstream, &in, &outTok, &total); err != nil {
 			return nil, err
 		}
-		req.Streaming = streaming == 1
+		req.Streaming = streaming != 0
 		if resolved.Valid {
-			v := resolved.String
-			req.ResolvedModel = &v
+			req.ResolvedModel = &resolved.String
 		}
 		if served.Valid {
-			v := served.String
-			req.ServedModel = &v
+			req.ServedModel = &served.String
 		}
 		if groupID.Valid {
-			v := groupID.Int64
-			req.GroupID = &v
+			req.GroupID = &groupID.Int64
 		}
 		if groupName.Valid {
-			v := groupName.String
-			req.GroupName = &v
+			req.GroupName = &groupName.String
 		}
 		if keyID.Valid {
-			v := keyID.Int64
-			req.ClientKeyID = &v
+			req.ClientKeyID = &keyID.Int64
 		}
 		if keyName.Valid {
-			v := keyName.String
-			req.ClientKeyName = &v
+			req.ClientKeyName = &keyName.String
 		}
 		if httpStatus.Valid {
 			v := int(httpStatus.Int64)
 			req.HTTPStatus = &v
 		}
 		req.ErrorCategory = ErrorCategory(category.String)
-		if t, err := time.Parse(time.RFC3339Nano, started); err == nil {
-			req.StartedAt = t
-		}
+		req.StartedAt = parseTime(sql.NullString{String: started, Valid: true})
 		if completed.Valid {
-			if t, err := time.Parse(time.RFC3339Nano, completed.String); err == nil {
-				req.CompletedAt = &t
-			}
+			t := parseTime(completed)
+			req.CompletedAt = &t
 		}
 		if duration.Valid {
-			v := duration.Int64
-			req.DurationMS = &v
+			req.DurationMS = &duration.Int64
 		}
 		if ttft.Valid {
-			v := ttft.Int64
-			req.TTFTMS = &v
+			req.TTFTMS = &ttft.Int64
 		}
 		if upstream.Valid {
-			v := upstream.Int64
-			req.UpstreamMS = &v
+			req.UpstreamMS = &upstream.Int64
 		}
 		if in.Valid {
-			v := in.Int64
-			req.Usage.Input = &v
+			req.Usage.Input = &in.Int64
 		}
 		if outTok.Valid {
-			v := outTok.Int64
-			req.Usage.Output = &v
+			req.Usage.Output = &outTok.Int64
 		}
 		if total.Valid {
-			v := total.Int64
-			req.Usage.Total = &v
+			req.Usage.Total = &total.Int64
 		}
-		attempts, err := r.listAttempts(ctx, req.ID)
+		out = append(out, RequestWithAttempts{Request: req})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	_ = rows.Close()
+	for i := range out {
+		attempts, err := r.listAttempts(ctx, out[i].ID)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, RequestWithAttempts{Request: req, Attempts: attempts})
+		out[i].Attempts = attempts
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 func (r *Recorder) listAttempts(ctx context.Context, requestID string) ([]Attempt, error) {
-	rows, err := r.db.QueryContext(ctx, `
-		SELECT request_id, attempt_number, provider_id, provider_name, provider_prefix, provider_type,
-			model_id, upstream_model, credential_id, started_at, completed_at, duration_ms,
-			http_status, success, error_category, input_tokens, output_tokens, total_tokens
-		FROM telemetry_attempts WHERE request_id=? ORDER BY attempt_number`, requestID)
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT request_id,attempt_number,provider_id,provider_name,provider_prefix,provider_type,model_id,upstream_model,credential_id,started_at,completed_at,duration_ms,http_status,success,error_category,input_tokens,output_tokens,total_tokens
+		 FROM telemetry_attempts WHERE request_id=? ORDER BY attempt_number`, requestID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := []Attempt{}
+	var out []Attempt
 	for rows.Next() {
 		var a Attempt
 		var providerID, modelID, credID sql.NullInt64
@@ -396,30 +336,23 @@ func (r *Recorder) listAttempts(ctx context.Context, requestID string) ([]Attemp
 			&httpStatus, &success, &category, &in, &outTok, &total); err != nil {
 			return nil, err
 		}
-		a.Success = success == 1
+		a.Success = success != 0
 		if providerID.Valid {
-			v := providerID.Int64
-			a.ProviderID = &v
+			a.ProviderID = &providerID.Int64
 		}
 		if modelID.Valid {
-			v := modelID.Int64
-			a.ModelID = &v
+			a.ModelID = &modelID.Int64
 		}
 		if credID.Valid {
-			v := credID.Int64
-			a.CredentialID = &v
+			a.CredentialID = &credID.Int64
 		}
-		if t, err := time.Parse(time.RFC3339Nano, started.String); err == nil {
-			a.StartedAt = t
-		}
+		a.StartedAt = parseTime(started)
 		if completed.Valid {
-			if t, err := time.Parse(time.RFC3339Nano, completed.String); err == nil {
-				a.CompletedAt = &t
-			}
+			t := parseTime(completed)
+			a.CompletedAt = &t
 		}
 		if duration.Valid {
-			v := duration.Int64
-			a.DurationMS = &v
+			a.DurationMS = &duration.Int64
 		}
 		if httpStatus.Valid {
 			v := int(httpStatus.Int64)
@@ -427,18 +360,31 @@ func (r *Recorder) listAttempts(ctx context.Context, requestID string) ([]Attemp
 		}
 		a.ErrorCategory = ErrorCategory(category.String)
 		if in.Valid {
-			v := in.Int64
-			a.Usage.Input = &v
+			a.Usage.Input = &in.Int64
 		}
 		if outTok.Valid {
-			v := outTok.Int64
-			a.Usage.Output = &v
+			a.Usage.Output = &outTok.Int64
 		}
 		if total.Valid {
-			v := total.Int64
-			a.Usage.Total = &v
+			a.Usage.Total = &total.Int64
 		}
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+func insertAttempt(ctx context.Context, tx *sql.Tx, a *Attempt) error {
+	_, err := tx.ExecContext(ctx,
+		`INSERT INTO telemetry_attempts(request_id,attempt_number,provider_id,provider_name,provider_prefix,provider_type,model_id,upstream_model,credential_id,started_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+		a.RequestID, a.Number, a.ProviderID, a.ProviderName, a.ProviderPrefix, a.ProviderType, a.ModelID, a.UpstreamModel, a.CredentialID,
+		a.StartedAt.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("telemetry: insert attempt: %w", err)
+	}
+	return nil
+}
+
+func parseTime(v sql.NullString) time.Time {
+	t, _ := time.Parse(time.RFC3339Nano, v.String)
+	return t
 }

@@ -67,9 +67,9 @@ func writeFrames(w http.ResponseWriter, flusher http.Flusher, collector *SSEUsag
 	return true
 }
 
-func UpstreamPathForScheme(scheme service.Scheme) string {
+func UpstreamPathForScheme(scheme string) string {
 	switch scheme {
-	case service.SchemeAnthropic:
+	case string(service.SchemeAnthropic):
 		return AnthropicUpstreamPath
 	default:
 		return "v1/chat/completions"

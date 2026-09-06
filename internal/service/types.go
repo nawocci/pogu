@@ -1,5 +1,7 @@
 package service
 
+import "time"
+
 type ProviderType string
 
 const (
@@ -9,23 +11,18 @@ const (
 )
 
 func (t ProviderType) Valid() bool {
-	switch t {
-	case ProviderOpenAI, ProviderAnthropic:
-		return true
-	default:
-		return false
-	}
+	return t == ProviderOpenAI || t == ProviderAnthropic
 }
 
 type KeySelection string
 
 const (
-	SelectionFirst KeySelection = "first"
-	SelectionRound KeySelection = "round_robin"
+	KeySelectionFirst      KeySelection = "first"
+	KeySelectionRoundRobin KeySelection = "round_robin"
 )
 
 func (s KeySelection) Valid() bool {
-	return s == SelectionFirst || s == SelectionRound
+	return s == KeySelectionFirst || s == KeySelectionRoundRobin
 }
 
 type Scheme string
@@ -45,6 +42,10 @@ func (s Scheme) Valid() bool {
 	}
 }
 
+func ValidModelScheme(scheme string) bool {
+	return Scheme(scheme).Valid()
+}
+
 func DefaultScheme(t ProviderType) Scheme {
 	if t == ProviderAnthropic {
 		return SchemeAnthropic
@@ -52,11 +53,11 @@ func DefaultScheme(t ProviderType) Scheme {
 	return SchemeOpenAI
 }
 
-func EffectiveScheme(providerType ProviderType, modelScheme string) Scheme {
-	if Scheme(modelScheme).Valid() && modelScheme != "" {
-		return Scheme(modelScheme)
+func EffectiveScheme(p Provider, m Model) Scheme {
+	if Scheme(m.Scheme).Valid() && m.Scheme != "" {
+		return Scheme(m.Scheme)
 	}
-	return DefaultScheme(providerType)
+	return DefaultScheme(p.Type)
 }
 
 type Provider struct {
@@ -70,42 +71,42 @@ type Provider struct {
 	KeySelection KeySelection `json:"key_selection"`
 	Enabled      bool         `json:"enabled"`
 	Builtin      string       `json:"builtin"`
-	CreatedAt    string       `json:"created_at"`
-	UpdatedAt    string       `json:"updated_at"`
+	CreatedAt    time.Time    `json:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at"`
 }
 
 type ProviderKey struct {
-	ID         int64   `json:"id"`
-	ProviderID int64   `json:"provider_id"`
-	Name       string  `json:"name"`
-	MaskedKey  string  `json:"masked_key"`
-	Enabled    bool    `json:"enabled"`
-	SortOrder  int     `json:"sort_order"`
-	LastUsedAt *string `json:"last_used_at"`
-	CreatedAt  string  `json:"created_at"`
-	UpdatedAt  string  `json:"updated_at"`
+	ID         int64      `json:"id"`
+	ProviderID int64      `json:"provider_id"`
+	Name       string     `json:"name"`
+	MaskedKey  string     `json:"masked_key"`
+	Enabled    bool       `json:"enabled"`
+	SortOrder  int        `json:"sort_order"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
 }
 
 type Model struct {
-	ID         int64  `json:"id"`
-	ProviderID int64  `json:"provider_id"`
-	Provider   string `json:"provider"`
-	Prefix     string `json:"prefix"`
-	Name       string `json:"name"`
-	PublicID   string `json:"public_id"`
-	Enabled    bool   `json:"enabled"`
-	Scheme     string `json:"scheme"`
-	CreatedAt  string `json:"created_at"`
-	UpdatedAt  string `json:"updated_at"`
+	ID         int64     `json:"id"`
+	ProviderID int64     `json:"provider_id"`
+	Provider   string    `json:"provider"`
+	Prefix     string    `json:"prefix"`
+	Name       string    `json:"name"`
+	PublicID   string    `json:"public_id"`
+	Enabled    bool      `json:"enabled"`
+	Scheme     string    `json:"scheme"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
 
 type APIKey struct {
-	ID         int64   `json:"id"`
-	Name       string  `json:"name"`
-	LastUsedAt *string `json:"last_used_at"`
-	ExpiresAt  *string `json:"expires_at"`
-	RevokedAt  *string `json:"revoked_at"`
-	CreatedAt  string  `json:"created_at"`
+	ID         int64      `json:"id"`
+	Name       string     `json:"name"`
+	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
+	RevokedAt  *time.Time `json:"revoked_at,omitempty"`
+	CreatedAt  time.Time  `json:"created_at"`
 }
 
 type Route struct {

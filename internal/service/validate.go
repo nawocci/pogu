@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -9,13 +10,14 @@ import (
 )
 
 var (
-	ErrValidation    = errors.New("validation error")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrForbidden     = errors.New("forbidden")
-	ErrUnknownRoute  = errors.New("unknown model or group")
-	ErrAlreadyExists = errors.New("already exists")
-	ErrNoCredentials = errors.New("no enabled provider credentials")
-	ErrBuiltin       = errors.New("built-in provider cannot be changed this way")
+	ErrValidation     = errors.New("validation error")
+	ErrUnauthorized   = errors.New("unauthorized")
+	ErrForbidden      = errors.New("forbidden")
+	ErrUnknownRoute   = errors.New("unknown model or group")
+	ErrAlreadyExists  = errors.New("already exists")
+	ErrNoCredentials  = errors.New("no enabled provider credentials")
+	ErrNoGroupTargets = errors.New("group has no available targets")
+	ErrBuiltin        = errors.New("built-in provider cannot be changed this way")
 )
 
 var (
@@ -26,80 +28,42 @@ var (
 
 const reservedPrefix = "oc"
 
-func validation(msg string) error {
-	return &ValidationError{msg}
-}
+func IsReservedPrefix(prefix string) bool { return prefix == reservedPrefix }
 
-type ValidationError struct{ Message string }
-
-func (e *ValidationError) Error() string        { return e.Message }
-func (e *ValidationError) Is(target error) bool { return target == ErrValidation }
-
-func checkName(name string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" || utf8.RuneCountInString(name) > 200 {
-		return "", validation("name must be between 1 and 200 characters")
+func validateProviderInput(name string, typ ProviderType, prefix, baseURL string) error {
+	if err := validateProviderNameTypeURL(name, typ, baseURL); err != nil {
+		return err
 	}
-	return name, nil
-}
-
-func checkPrefix(prefix string) (string, error) {
-	prefix = strings.TrimSpace(prefix)
 	if !prefixPattern.MatchString(prefix) {
-		return "", validation("prefix must be 1-32 lowercase letters, digits, or hyphens without leading or trailing hyphens")
+		return fmt.Errorf("%w: prefix must use lowercase letters, numbers, and hyphens", ErrValidation)
 	}
-	if prefix == reservedPrefix {
-		return "", validation("prefix is reserved")
-	}
-	return prefix, nil
-}
-
-func checkProviderType(t ProviderType) error {
-	if !t.Valid() {
-		return validation("provider type must be openai or anthropic")
+	if IsReservedPrefix(prefix) {
+		return fmt.Errorf("%w: prefix %q is reserved for the built-in provider", ErrValidation, prefix)
 	}
 	return nil
 }
 
-func checkBaseURL(raw string) (string, error) {
-	raw = strings.TrimSpace(strings.TrimRight(strings.TrimSpace(raw), "/"))
-	u, err := url.ParseRequestURI(raw)
-	if err != nil {
-		return "", validation("base URL must be an absolute http(s) URL")
+func validateProviderNameTypeURL(name string, typ ProviderType, baseURL string) error {
+	if strings.TrimSpace(name) == "" || utf8.RuneCountInString(strings.TrimSpace(name)) > 200 {
+		return fmt.Errorf("%w: name is required and must be at most 200 characters", ErrValidation)
 	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return "", validation("base URL must be an absolute http(s) URL")
+	if !typ.Valid() {
+		return fmt.Errorf("%w: type must be openai or anthropic", ErrValidation)
 	}
-	if u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
-		return "", validation("base URL must be an absolute http(s) URL without user, query, or fragment")
+	u, err := url.ParseRequestURI(strings.TrimSpace(baseURL))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("%w: base_url must be an absolute http(s) URL without credentials or query parameters", ErrValidation)
 	}
-	return raw, nil
+	return nil
 }
 
-func checkModelName(name string) (string, error) {
-	name = strings.TrimSpace(name)
-	if name == "" || !modelPattern.MatchString(name) || utf8.RuneCountInString(name) > 300 {
-		return "", validation("model name must be 1-300 characters without slashes or whitespace")
+func validateModelName(name string) error {
+	if !modelPattern.MatchString(name) || utf8.RuneCountInString(name) > 300 {
+		return fmt.Errorf("%w: model name must be 1-300 non-whitespace characters without slash", ErrValidation)
 	}
-	return name, nil
+	return nil
 }
 
-func checkSelection(s KeySelection) (KeySelection, error) {
-	if s == "" {
-		return SelectionFirst, nil
-	}
-	if !s.Valid() {
-		return "", validation(`key selection must be "first" or "round_robin"`)
-	}
-	if s == SelectionRound {
-		return "", validation(`round_robin key selection is not available yet`)
-	}
-	return s, nil
-}
-
-func checkScheme(s string) (string, error) {
-	if !Scheme(s).Valid() {
-		return "", validation(`scheme must be "", "openai", or "anthropic"`)
-	}
-	return s, nil
+func isUnique(err error) bool {
+	return err != nil && strings.Contains(strings.ToLower(err.Error()), "unique")
 }
