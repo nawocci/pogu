@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nawocci/pogu/internal/config"
@@ -46,12 +48,15 @@ func controlResource(dataDir, resource string, args []string) error {
 	if err != nil {
 		return err
 	}
-	req, err := parseControlRequest(resource, args)
+	req, visited, err := parseControlRequest(resource, args)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if err := fillUpdateDefaults(ctx, client, resource, visited, &req); err != nil {
+		return err
+	}
 	var result any
 	if err := client.Call(ctx, req, &result); err != nil {
 		return err
@@ -60,6 +65,47 @@ func controlResource(dataDir, resource string, args []string) error {
 		return nil
 	}
 	return printJSON(result)
+}
+
+// fillUpdateDefaults makes CLI update operations partial: flags the operator
+// did not pass inherit the stored values instead of resetting them. Without
+// this, `provider update --id 1 --enabled true` would blank the name (and
+// wrongly trip the built-in freeze) just because --name was omitted.
+func fillUpdateDefaults(ctx context.Context, client *control.Client, resource string, visited map[string]bool, req *control.Request) error {
+	if !strings.HasSuffix(req.Op, ".update") {
+		return nil
+	}
+	switch resource {
+	case "provider":
+		var current service.Provider
+		if err := client.Call(ctx, control.Request{Op: "provider.get", ID: req.ID}, &current); err != nil {
+			return err
+		}
+		if !visited["name"] {
+			req.Name = current.Name
+		}
+		if !visited["type"] {
+			req.Type = current.Type
+		}
+		if !visited["prefix"] {
+			req.Prefix = current.Prefix
+		}
+		if !visited["base-url"] {
+			req.BaseURL = current.BaseURL
+		}
+		if !visited["key-selection"] {
+			req.KeySelection = current.KeySelection
+		}
+	case "model":
+		var current service.Model
+		if err := client.Call(ctx, control.Request{Op: "model.get", ID: req.ID}, &current); err != nil {
+			return err
+		}
+		if !visited["name"] {
+			req.Name = current.Name
+		}
+	}
+	return nil
 }
 
 func controlProviderKey(dataDir string, args []string) error {
@@ -124,6 +170,16 @@ func controlProviderKey(dataDir string, args []string) error {
 	if secret != "" {
 		req.Secret = &secret
 	}
+	if op == "update" && name == "" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		var current service.ProviderKey
+		err := client.Call(ctx, control.Request{Op: "provider_key.get", ID: id}, &current)
+		cancel()
+		if err != nil {
+			return err
+		}
+		req.Name = current.Name
+	}
 
 	if op == "import" {
 		var textBytes []byte
@@ -154,10 +210,10 @@ func controlProviderKey(dataDir string, args []string) error {
 	return printJSON(result)
 }
 
-func parseControlRequest(resource string, args []string) (control.Request, error) {
+func parseControlRequest(resource string, args []string) (control.Request, map[string]bool, error) {
 	op := args[0]
 	if op == "list" {
-		return control.Request{Op: resource + ".list"}, nil
+		return control.Request{Op: resource + ".list"}, map[string]bool{}, nil
 	}
 	fs := newFlagSet("pogu " + resource + " " + op)
 	id := int64(0)
@@ -184,8 +240,10 @@ func parseControlRequest(resource string, args []string) (control.Request, error
 		return nil
 	})
 	if err := fs.Parse(args[1:]); err != nil {
-		return control.Request{}, err
+		return control.Request{}, nil, err
 	}
+	visited := map[string]bool{}
+	fs.Visit(func(f *flag.Flag) { visited[f.Name] = true })
 	enabledPtr := (*bool)(nil)
 	if enabledSet {
 		enabledPtr = &enabled
@@ -209,7 +267,7 @@ func parseControlRequest(resource string, args []string) (control.Request, error
 	if op == "create" && resource == "provider" && apiKeyPtr == nil {
 		req.APIKey = &apiKey
 	}
-	return req, nil
+	return req, visited, nil
 }
 
 func telemetryCommand(dataDir string, args []string) error {
