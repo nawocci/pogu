@@ -22,6 +22,8 @@
     busyToggles.add(p.id);
     try {
       await store.mutate(() => api.updateProvider(p.id, providerInput(p, { enabled })));
+    } catch (e) {
+      toast('error', e instanceof Error ? e.message : String(e));
     } finally {
       busyToggles.delete(p.id);
     }
