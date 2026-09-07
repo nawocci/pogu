@@ -29,7 +29,7 @@ func (a *API) anthropicMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func isFailoverStatus(status int) bool {
-	return status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusTooManyRequests
+	return status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusTooManyRequests || status == http.StatusPaymentRequired
 }
 
 func (a *API) resolveTargets(ctx context.Context, model, protocol string) ([]routeTarget, service.Group, bool, error) {

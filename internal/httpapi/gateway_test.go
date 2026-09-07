@@ -259,3 +259,22 @@ func TestGatewayErrors(t *testing.T) {
 		t.Fatalf("models = %+v", listed)
 	}
 }
+
+func TestIsFailoverStatus(t *testing.T) {
+	cases := map[int]bool{
+		http.StatusUnauthorized:        true,
+		http.StatusForbidden:           true,
+		http.StatusTooManyRequests:     true,
+		http.StatusPaymentRequired:     true,
+		http.StatusBadRequest:          false,
+		http.StatusNotFound:            false,
+		http.StatusInternalServerError: false,
+		http.StatusServiceUnavailable:  false,
+		http.StatusOK:                  false,
+	}
+	for status, want := range cases {
+		if got := isFailoverStatus(status); got != want {
+			t.Errorf("isFailoverStatus(%d) = %v, want %v", status, got, want)
+		}
+	}
+}
