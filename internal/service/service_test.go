@@ -84,6 +84,31 @@ func TestProviderModelRoute(t *testing.T) {
 	if _, err := s.CreateModel(ctx, p.ID, "has space", true); !errors.Is(err, ErrValidation) {
 		t.Fatalf("bad model name = %v", err)
 	}
+	if _, err := s.CreateModel(ctx, p.ID, "has/slash", true); err != nil {
+		t.Fatalf("slashed model name = %v", err)
+	}
+	if _, err := s.CreateModel(ctx, p.ID, "free/model:tag", true); err != nil {
+		t.Fatalf("nested slash model name = %v", err)
+	}
+	if _, err := s.CreateModel(ctx, p.ID, "a//b", true); !errors.Is(err, ErrValidation) {
+		t.Fatalf("empty slash segment = %v", err)
+	}
+	if _, err := s.CreateModel(ctx, p.ID, "/leading", true); !errors.Is(err, ErrValidation) {
+		t.Fatalf("leading slash = %v", err)
+	}
+	if _, err := s.CreateModel(ctx, p.ID, "trailing/", true); !errors.Is(err, ErrValidation) {
+		t.Fatalf("trailing slash = %v", err)
+	}
+	slashed, err := s.ResolveRoute(ctx, "oa/free/model:tag")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if slashed.Model.Name != "free/model:tag" {
+		t.Fatalf("slashed route model = %q", slashed.Model.Name)
+	}
+	if _, err := s.ResolveRoute(ctx, "oa/has/slash"); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func TestProviderKeyLifecycle(t *testing.T) {

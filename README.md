@@ -149,6 +149,10 @@ password, then:
    available target, failing over to the next one when a provider returns
    401, 403, or 429. The routing rule is simple: a model identifier
    containing `/` is a concrete `prefix/model` reference; without a slash it
+   The upstream model name may itself contain slashes (e.g. add model
+   `minimax/minimax-m3:free` under an `openrouter` provider and call it
+   `openrouter/minimax/minimax-m3:free`).
+
    is a group name.
 
 5. **Make requests**:

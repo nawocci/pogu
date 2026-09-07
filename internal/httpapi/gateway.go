@@ -34,7 +34,8 @@ func isFailoverStatus(status int) bool {
 
 func (a *API) resolveTargets(ctx context.Context, model, protocol string) ([]routeTarget, service.Group, bool, error) {
 	if strings.Contains(model, "/") {
-		if strings.Count(model, "/") != 1 {
+		prefix, rest, ok := strings.Cut(model, "/")
+		if !ok || prefix == "" || rest == "" || !service.ValidProviderPrefix(prefix) {
 			return nil, service.Group{}, false, errors.New("model must be a group name or a provider-prefix/model reference")
 		}
 		route, err := a.Service.ResolveRoute(ctx, model)

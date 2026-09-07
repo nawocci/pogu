@@ -22,13 +22,16 @@ var (
 
 var (
 	prefixPattern  = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,30}[a-z0-9])?$`)
-	modelPattern   = regexp.MustCompile(`^[^/\\\x00-\x20]+$`)
+	modelPattern   = regexp.MustCompile(`^[^\\\x00-\x20]+$`)
+	modelSegment   = regexp.MustCompile(`^[^/\\\x00-\x20]+$`)
 	keyNamePattern = regexp.MustCompile(`^Key\s+(\d+)$`)
 )
 
 const reservedPrefix = "oc"
 
 func IsReservedPrefix(prefix string) bool { return prefix == reservedPrefix }
+
+func ValidProviderPrefix(prefix string) bool { return prefixPattern.MatchString(prefix) }
 
 func validateProviderInput(name string, typ ProviderType, prefix, baseURL string) error {
 	if err := validateProviderNameTypeURL(name, typ, baseURL); err != nil {
@@ -59,7 +62,12 @@ func validateProviderNameTypeURL(name string, typ ProviderType, baseURL string) 
 
 func validateModelName(name string) error {
 	if !modelPattern.MatchString(name) || utf8.RuneCountInString(name) > 300 {
-		return fmt.Errorf("%w: model name must be 1-300 non-whitespace characters without slash", ErrValidation)
+		return fmt.Errorf("%w: model name must be 1-300 non-whitespace characters", ErrValidation)
+	}
+	for _, segment := range strings.Split(name, "/") {
+		if !modelSegment.MatchString(segment) {
+			return fmt.Errorf("%w: model name must not contain empty slash-delimited segments", ErrValidation)
+		}
 	}
 	return nil
 }

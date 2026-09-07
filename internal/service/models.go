@@ -123,7 +123,7 @@ func (s *Service) SetModelScheme(ctx context.Context, id int64, scheme string) e
 }
 
 func (s *Service) ResolveRoute(ctx context.Context, publicID string) (Route, error) {
-	parts := strings.Split(publicID, "/")
+	parts := strings.SplitN(publicID, "/", 2)
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return Route{}, fmt.Errorf("%w: malformed model identifier", ErrUnknownRoute)
 	}
