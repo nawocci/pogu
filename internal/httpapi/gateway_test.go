@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -22,6 +23,14 @@ type mockUpstream struct {
 	protocol string
 	key      string
 	failNext atomic.Int32
+	mu       sync.Mutex
+	lastBody []byte
+}
+
+func (m *mockUpstream) capturedBody() []byte {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]byte(nil), m.lastBody...)
 }
 
 func (m *mockUpstream) handler() http.Handler {
@@ -48,6 +57,9 @@ func (m *mockUpstream) handler() http.Handler {
 			return
 		}
 		body, _ := io.ReadAll(r.Body)
+		m.mu.Lock()
+		m.lastBody = append([]byte(nil), body...)
+		m.mu.Unlock()
 		var env struct {
 			Model  string `json:"model"`
 			Stream bool   `json:"stream"`
@@ -276,5 +288,106 @@ func TestIsFailoverStatus(t *testing.T) {
 		if got := isFailoverStatus(status); got != want {
 			t.Errorf("isFailoverStatus(%d) = %v, want %v", status, got, want)
 		}
+	}
+}
+
+func groupTestSetup(t *testing.T, oa, an *mockUpstream) *e2e {
+	t.Helper()
+	e := newE2E(t, oa, an)
+	defer func() {}()
+	models, err := e.api.Service.ListModels(e.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPublic := map[string]int64{}
+	for _, m := range models {
+		byPublic[m.PublicID] = m.ID
+	}
+	mkGroup := func(name string, members ...string) {
+		g, err := e.api.Service.CreateGroup(e.ctx, name, true, "first")
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, pub := range members {
+			if _, err := e.api.Service.AddGroupMember(e.ctx, g.ID, byPublic[pub]); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	mkGroup("oapool", "oa/alpha")
+	mkGroup("anpool", "an/gamma")
+	mkGroup("pool", "oa/alpha", "an/gamma")
+	return e
+}
+
+func wireField(t *testing.T, raw []byte, path ...string) string {
+	t.Helper()
+	var v any
+	if err := json.Unmarshal(raw, &v); err != nil {
+		t.Fatalf("upstream body not JSON: %v", err)
+	}
+	m, _ := v.(map[string]any)
+	for i, key := range path {
+		if m == nil {
+			return ""
+		}
+		if i == len(path)-1 {
+			s, _ := m[key].(string)
+			return s
+		}
+		m, _ = m[key].(map[string]any)
+	}
+	return ""
+}
+
+func TestGroupReasoningEffortForwarding(t *testing.T) {
+	oa := &mockUpstream{protocol: "openai", key: "k1"}
+	an := &mockUpstream{protocol: "anthropic", key: "k2"}
+	e := groupTestSetup(t, oa, an)
+	defer e.server.Close()
+
+	// OpenAI inlet reasoning_effort -> openai-scheme member verbatim.
+	status, body, _ := e.post(t, "/v1/chat/completions", "openai",
+		`{"model":"oapool","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"high"}`)
+	if status != 200 || !strings.Contains(body, "hello") {
+		t.Fatalf("oapool = %d %s", status, body)
+	}
+	if got := wireField(t, oa.capturedBody(), "reasoning_effort"); got != "high" {
+		t.Fatalf("openai upstream reasoning_effort = %q, wire = %s", got, oa.capturedBody())
+	}
+
+	// Same inlet -> anthropic-scheme member translated to adaptive effort.
+	status, body, _ = e.post(t, "/v1/chat/completions", "openai",
+		`{"model":"anpool","messages":[{"role":"user","content":"hi"}],"reasoning_effort":"high"}`)
+	if status != 200 || !strings.Contains(body, "hello") {
+		t.Fatalf("anpool = %d %s", status, body)
+	}
+	anWire := an.capturedBody()
+	if got := wireField(t, anWire, "thinking", "type"); got != "adaptive" {
+		t.Fatalf("anthropic thinking.type = %q, wire = %s", got, anWire)
+	}
+	if got := wireField(t, anWire, "output_config", "effort"); got != "high" {
+		t.Fatalf("anthropic output_config.effort = %q, wire = %s", got, anWire)
+	}
+
+	// Suffix override on group name wins over absent body intent.
+	status, body, _ = e.post(t, "/v1/chat/completions", "openai",
+		`{"model":"oapool(medium)","messages":[{"role":"user","content":"hi"}]}`)
+	if status != 200 {
+		t.Fatalf("suffix pool = %d %s", status, body)
+	}
+	if got := wireField(t, oa.capturedBody(), "reasoning_effort"); got != "medium" {
+		t.Fatalf("suffix reasoning_effort = %q, wire = %s", got, oa.capturedBody())
+	}
+
+	// Anthropic inlet thinking -> openai-scheme member as reasoning_effort.
+	status, body, _ = e.post(t, "/v1/messages", "anthropic",
+		`{"model":"oapool","max_tokens":64,"messages":[{"role":"user","content":"hi"}],
+		  "thinking":{"type":"adaptive"},"output_config":{"effort":"medium"}}`)
+	if status != 200 {
+		t.Fatalf("anthropic inlet = %d %s", status, body)
+	}
+	if got := wireField(t, oa.capturedBody(), "reasoning_effort"); got != "medium" {
+		t.Fatalf("chat inlet reasoning_effort = %q, wire = %s", got, oa.capturedBody())
 	}
 }

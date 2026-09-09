@@ -105,6 +105,14 @@ func TranslateChatToAnthropic(body []byte, stream bool) ([]byte, error) {
 	if stop := chatStopToAnthropic(in.Stop); stop != nil {
 		out["stop_sequences"] = stop
 	}
+	if effort, ok := ExtractChatEffort(body); ok {
+		if effort == "none" {
+			out["thinking"] = map[string]any{"type": "disabled"}
+		} else {
+			out["thinking"] = map[string]any{"type": "adaptive"}
+			out["output_config"] = map[string]any{"effort": MapChatEffortToAnthropic(effort)}
+		}
+	}
 	return json.Marshal(out)
 }
 
@@ -401,6 +409,9 @@ func TranslateAnthropicToChat(body []byte, stream bool) ([]byte, error) {
 	}
 	if stop := chatStopToAnthropic(in.Stop); stop != nil {
 		out["stop"] = stop
+	}
+	if effort, ok := ExtractAnthropicEffort(body); ok {
+		out["reasoning_effort"] = effort
 	}
 	return json.Marshal(out)
 }

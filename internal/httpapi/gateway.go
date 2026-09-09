@@ -86,20 +86,48 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 		return
 	}
 	rawBody := body
+	suffixEffort := ""
+	hasSuffixEffort := false
 	if protocol == "anthropic" {
+		rawBody = provider.StripAnthropicForeign(rawBody)
+		if m := modelOf(rawBody); m != "" {
+			if clean, effort, has := provider.ParseThinkingSuffix(m); has || clean != m {
+				rawBody = replaceModel(rawBody, clean)
+				if has {
+					suffixEffort, hasSuffixEffort = effort, true
+				}
+			}
+		}
 		var pre struct {
 			Stream bool `json:"stream"`
 		}
-		if err := json.Unmarshal(body, &pre); err != nil {
+		if err := json.Unmarshal(rawBody, &pre); err != nil {
 			writeProtocolError(w, protocol, http.StatusBadRequest, "request must contain a valid model", "invalid_request_error")
 			return
 		}
-		translated, err := provider.TranslateAnthropicToChat(body, pre.Stream)
+		translated, err := provider.TranslateAnthropicToChat(rawBody, pre.Stream)
 		if err != nil {
 			writeProtocolError(w, protocol, http.StatusBadRequest, "request must contain valid messages", "invalid_request_error")
 			return
 		}
-		body = translated
+		body = provider.StripChatForeign(translated)
+		if hasSuffixEffort {
+			body = provider.SetChatEffort(body, suffixEffort)
+			rawBody = provider.SetAnthropicThinking(rawBody, suffixEffort)
+		}
+	} else {
+		body = provider.StripChatForeign(body)
+		rawBody = provider.StripChatForeign(rawBody)
+		if m := modelOf(body); m != "" {
+			if clean, effort, has := provider.ParseThinkingSuffix(m); has || clean != m {
+				body = replaceModel(body, clean)
+				rawBody = replaceModel(rawBody, clean)
+				if has {
+					body = provider.SetChatEffort(body, effort)
+					rawBody = provider.SetChatEffort(rawBody, effort)
+				}
+			}
+		}
 	}
 	var envelope struct {
 		Model  string `json:"model"`
@@ -374,6 +402,16 @@ func replaceModel(body []byte, model string) []byte {
 		return body
 	}
 	return out
+}
+
+func modelOf(body []byte) string {
+	var envelope struct {
+		Model string `json:"model"`
+	}
+	if json.Unmarshal(body, &envelope) != nil {
+		return ""
+	}
+	return envelope.Model
 }
 
 func extractBearer(r *http.Request) string {
