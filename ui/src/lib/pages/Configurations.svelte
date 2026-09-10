@@ -208,7 +208,7 @@
               options={cavemanLevels.map((l) => ({ value: l.id, label: l.label, description: l.description }))}
             />
             <p class="hint">
-              Compresses response output tokens while keeping technical substance. Overridable per request via <code class="font-mono text-xs">X-Caveman</code> header. Rules sync weekly from GitHub.
+              Compresses response output tokens while keeping technical substance. Overridable per request via <code class="font-mono text-xs">X-Caveman</code> header. Rules sync weekly from the <a href="https://github.com/JuliusBrussee/caveman" target="_blank" rel="noreferrer noopener">Caveman skill</a> by Julius Brussee (MIT).
             </p>
           </label>
           <div class="mb-4 flex items-center justify-between gap-4">

@@ -14,6 +14,9 @@ import (
 	"github.com/nawocci/pogu/internal/store"
 )
 
+// Caveman rules come from the Caveman skill by Julius Brussee
+// (https://github.com/JuliusBrussee/caveman), which is MIT licensed and
+// trademarked. See caveman_default.go for the bundled fallback notice.
 const (
 	CavemanSkillURL = "https://raw.githubusercontent.com/JuliusBrussee/caveman/refs/heads/main/skills/caveman/SKILL.md"
 
