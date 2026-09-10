@@ -205,7 +205,7 @@
             <Dropdown
               value={cavemanLevel}
               onchange={(v) => (cavemanLevel = v)}
-              options={cavemanLevels.map((l) => ({ value: l.id, label: l.label, hint: l.description }))}
+              options={cavemanLevels.map((l) => ({ value: l.id, label: l.label, description: l.description }))}
             />
             <p class="hint">
               Compresses response output tokens while keeping technical substance. Overridable per request via <code class="font-mono text-xs">X-Caveman</code> header. Rules sync weekly from GitHub.

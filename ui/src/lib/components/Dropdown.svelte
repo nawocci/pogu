@@ -3,6 +3,7 @@
     value: string;
     label: string;
     hint?: string;
+    description?: string;
   }
 
   let uidCounter = 0;
@@ -12,7 +13,7 @@
   }
 
   export function matchOption(o: DropdownOption, query: string): boolean {
-    const hay = `${o.label} ${o.hint ?? ''} ${o.value}`.toLowerCase();
+    const hay = `${o.label} ${o.hint ?? ''} ${o.description ?? ''} ${o.value}`.toLowerCase();
     return query
       .toLowerCase()
       .split(/\s+/)
@@ -227,7 +228,7 @@
               id="{uid}-opt-{i}"
               aria-selected={isSel}
               data-active={i === cursor}
-              title={opt.hint ? `${opt.label} · ${opt.hint}` : opt.label}
+              title={[opt.label, opt.description ?? opt.hint].filter(Boolean).join(' · ')}
               onmouseenter={() => (active = i)}
               onmousedown={(e) => e.preventDefault()}
               onclick={() => select(opt.value)}
@@ -237,8 +238,17 @@
                   ? 'bg-hover text-paper'
                   : 'text-secondary hover:bg-hover hover:text-paper'}"
             >
-              <span class="min-w-0 flex-1 truncate">{opt.label}</span>
-              {#if opt.hint}<span class="shrink-0 font-mono text-[10.5px] text-muted">{opt.hint}</span>{/if}
+              <span class="min-w-0 flex-1">
+                <span class="flex min-w-0 items-center gap-2">
+                  <span class="min-w-0 flex-1 truncate">{opt.label}</span>
+                  {#if opt.hint}
+                    <span class="max-w-[45%] shrink-0 truncate font-mono text-[10.5px] text-muted">{opt.hint}</span>
+                  {/if}
+                </span>
+                {#if opt.description}
+                  <span class="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted">{opt.description}</span>
+                {/if}
+              </span>
             </button>
           {/each}
         {/if}
