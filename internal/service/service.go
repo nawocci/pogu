@@ -18,6 +18,10 @@ type Service struct {
 
 	OpenCodeDocsCacheFile string
 
+	CavemanSkillURL string
+	cavemanMu       sync.RWMutex
+	cavemanSkill    *CavemanSkill
+
 	rrMu      sync.Mutex
 	rrCursors map[string]uint64
 }
