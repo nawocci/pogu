@@ -150,12 +150,29 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 		rec.recordDirectRoute()
 	}
 
+	// Header override takes precedence: X-Caveman: full | lite | ultra | off
+	var cavemanPrompt string
+	if headerVal := strings.ToLower(strings.TrimSpace(r.Header.Get("X-Caveman"))); headerVal != "" {
+		if headerVal != "off" && headerVal != "false" && headerVal != "0" {
+			cavemanPrompt, _ = a.Service.GetCavemanPrompt(r.Context(), headerVal)
+		}
+	} else {
+		cavemanPrompt, _ = a.Service.ActiveCavemanPrompt(r.Context())
+	}
+
 	if text, enabled, err := a.Service.GetGlobalPrompt(r.Context()); err == nil {
 		if prompt := service.ActivePrompt(text, enabled); prompt != "" {
 			body = provider.InjectChatPrompt(body, prompt)
 			if protocol == "anthropic" {
 				rawBody = provider.InjectAnthropicPrompt(rawBody, prompt)
 			}
+		}
+	}
+
+	if cavemanPrompt != "" {
+		body = provider.InjectChatPrompt(body, cavemanPrompt)
+		if protocol == "anthropic" {
+			rawBody = provider.InjectAnthropicPrompt(rawBody, cavemanPrompt)
 		}
 	}
 

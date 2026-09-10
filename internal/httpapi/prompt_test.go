@@ -235,3 +235,89 @@ func TestChangePasswordEndpoint(t *testing.T) {
 		t.Fatal("rotation must kill the session")
 	}
 }
+
+func TestCavemanSettingsAndGatewayHeader(t *testing.T) {
+	stub := &captureStub{}
+	api, server, secret := promptFixture(t, service.ProviderOpenAI, stub)
+	defer server.Close()
+	client := authedClient(t, server.URL)
+
+	// 1. Check default settings
+	req, _ := http.NewRequest("GET", server.URL+"/api/settings/caveman", nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var settings service.CavemanSettings
+	if err := json.NewDecoder(resp.Body).Decode(&settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.Enabled || settings.Level != "full" || len(settings.Levels) == 0 {
+		t.Fatalf("unexpected initial settings: %+v", settings)
+	}
+
+	// 2. Chat completion without caveman enabled and without header -> no caveman prompt
+	chatReq, _ := http.NewRequest("POST", server.URL+"/v1/chat/completions", strings.NewReader(`{"model":"p/m","messages":[{"role":"user","content":"hi"}]}`))
+	chatReq.Header.Set("Authorization", "Bearer "+secret)
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatResp, err := http.DefaultClient.Do(chatReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chatResp.Body.Close()
+	if strings.Contains(stub.lastBody.Load().(string), "Caveman Mode") {
+		t.Fatalf("caveman should not be injected by default: %s", stub.lastBody.Load().(string))
+	}
+
+	// 3. Request with X-Caveman: ultra -> caveman ultra injected even if globally disabled
+	chatReq, _ = http.NewRequest("POST", server.URL+"/v1/chat/completions", strings.NewReader(`{"model":"p/m","messages":[{"role":"user","content":"hi"}]}`))
+	chatReq.Header.Set("Authorization", "Bearer "+secret)
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatReq.Header.Set("X-Caveman", "ultra")
+	chatResp, err = http.DefaultClient.Do(chatReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chatResp.Body.Close()
+	if !strings.Contains(stub.lastBody.Load().(string), "Caveman Mode: ultra") {
+		t.Fatalf("expected ultra caveman in payload: %s", stub.lastBody.Load().(string))
+	}
+
+	// 4. Enable globally via PUT /api/settings/caveman
+	putReq, _ := http.NewRequest("PUT", server.URL+"/api/settings/caveman", strings.NewReader(`{"enabled":true,"level":"lite"}`))
+	putReq.Header.Set("Content-Type", "application/json")
+	putResp, err := client.Do(putReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	putResp.Body.Close()
+
+	// Chat request without header should now have lite caveman injected
+	chatReq, _ = http.NewRequest("POST", server.URL+"/v1/chat/completions", strings.NewReader(`{"model":"p/m","messages":[{"role":"user","content":"hi"}]}`))
+	chatReq.Header.Set("Authorization", "Bearer "+secret)
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatResp, err = http.DefaultClient.Do(chatReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chatResp.Body.Close()
+	if !strings.Contains(stub.lastBody.Load().(string), "Caveman Mode: lite") {
+		t.Fatalf("expected lite caveman in payload: %s", stub.lastBody.Load().(string))
+	}
+
+	// Header X-Caveman: off should bypass global caveman
+	chatReq, _ = http.NewRequest("POST", server.URL+"/v1/chat/completions", strings.NewReader(`{"model":"p/m","messages":[{"role":"user","content":"hi"}]}`))
+	chatReq.Header.Set("Authorization", "Bearer "+secret)
+	chatReq.Header.Set("Content-Type", "application/json")
+	chatReq.Header.Set("X-Caveman", "off")
+	chatResp, err = http.DefaultClient.Do(chatReq)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chatResp.Body.Close()
+	if strings.Contains(stub.lastBody.Load().(string), "Caveman Mode") {
+		t.Fatalf("X-Caveman: off should bypass injection: %s", stub.lastBody.Load().(string))
+	}
+	_ = api
+}

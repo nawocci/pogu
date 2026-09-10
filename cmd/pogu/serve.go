@@ -96,6 +96,34 @@ func syncOpenCodeLoop(ctx context.Context, svc *service.Service, logger *slog.Lo
 		}
 	}
 }
+
+func syncCavemanLoop(ctx context.Context, svc *service.Service, logger *slog.Logger) {
+	ticker := time.NewTicker(7 * 24 * time.Hour)
+	defer ticker.Stop()
+	syncOnce := func() {
+		syncCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := svc.SyncCavemanSkill(syncCtx); err != nil {
+			logger.Warn("caveman skill sync failed", "error", err.Error())
+			return
+		}
+		logger.Info("caveman skill sync completed")
+	}
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(30 * time.Second):
+	}
+	syncOnce()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			syncOnce()
+		}
+	}
+}
 func openRuntime(dataDir string) (config.Config, *store.Store, *service.Service, bool, error) {
 	cfg, err := config.Load(dataDir)
 	if err != nil {
@@ -183,6 +211,7 @@ func serveCommand(dataDir string, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go syncOpenCodeLoop(ctx, svc, logger)
+	go syncCavemanLoop(ctx, svc, logger)
 	select {
 	case err := <-serveErr:
 		if errors.Is(err, http.ErrServerClosed) {

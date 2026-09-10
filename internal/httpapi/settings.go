@@ -36,6 +36,48 @@ func (a *API) updateGlobalPrompt(w http.ResponseWriter, r *http.Request) {
 	jsonWrite(w, http.StatusOK, map[string]any{"system_prompt": text, "enabled": enabled})
 }
 
+func (a *API) getCavemanSettings(w http.ResponseWriter, r *http.Request) {
+	settings, err := a.Service.GetCavemanSettings(r.Context())
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "could not load caveman settings")
+		return
+	}
+	jsonWrite(w, http.StatusOK, settings)
+}
+
+func (a *API) updateCavemanSettings(w http.ResponseWriter, r *http.Request) {
+	var in struct {
+		Enabled bool   `json:"enabled"`
+		Level   string `json:"level"`
+	}
+	if !decodeJSON(w, r, &in) {
+		return
+	}
+	if err := a.Service.SetCavemanSettings(r.Context(), in.Enabled, in.Level); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	settings, err := a.Service.GetCavemanSettings(r.Context())
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "could not load caveman settings")
+		return
+	}
+	jsonWrite(w, http.StatusOK, settings)
+}
+
+func (a *API) syncCavemanSkill(w http.ResponseWriter, r *http.Request) {
+	if err := a.Service.SyncCavemanSkill(r.Context()); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	settings, err := a.Service.GetCavemanSettings(r.Context())
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "could not load caveman settings")
+		return
+	}
+	jsonWrite(w, http.StatusOK, settings)
+}
+
 func (a *API) changePassword(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		CurrentPassword string `json:"current_password"`
