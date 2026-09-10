@@ -282,6 +282,19 @@ export interface GlobalPrompt {
   enabled: boolean;
 }
 
+export interface CavemanLevelMeta {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface CavemanSettings {
+  enabled: boolean;
+  level: string;
+  last_synced_at: string;
+  levels: CavemanLevelMeta[];
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -429,6 +442,12 @@ export const api = {
   globalPrompt: () => request<GlobalPrompt>('/api/settings/prompt'),
   updateGlobalPrompt: (input: GlobalPrompt) =>
     request<GlobalPrompt>('/api/settings/prompt', { method: 'PUT', body: JSON.stringify(input) }),
+
+  cavemanSettings: () => request<CavemanSettings>('/api/settings/caveman'),
+  updateCavemanSettings: (input: { enabled: boolean; level: string }) =>
+    request<CavemanSettings>('/api/settings/caveman', { method: 'PUT', body: JSON.stringify(input) }),
+  syncCavemanSkill: () =>
+    request<CavemanSettings>('/api/settings/caveman/sync', { method: 'POST' }),
 
   monitoringSummary: (f: MonitorFilters) =>
     request<SummaryResult>(`/api/monitoring/summary?${monitorQuery(f)}`),
