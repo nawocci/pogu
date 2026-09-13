@@ -198,6 +198,9 @@ func serveCommand(dataDir string, args []string) error {
 		logger.Warn("initial setup required",
 			"hint", "open the admin UI in a browser and complete setup with the token below")
 		logger.Warn("setup token", "token", token)
+		// Plain line (in addition to the JSON above) so the token is easy
+		// to spot and grep in `docker logs` without parsing JSON.
+		fmt.Fprintln(os.Stderr, "Pogu initial setup token: "+token)
 	}
 	server := &http.Server{
 		Addr:              cfg.Listen,

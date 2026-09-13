@@ -1,4 +1,4 @@
-.PHONY: all build ui binary clean test vet check
+.PHONY: all build ui binary clean test vet check docker-up
 
 all: build
 
@@ -24,3 +24,6 @@ clean:
 	rm -rf internal/web/dist
 	mkdir -p internal/web/dist
 	touch internal/web/dist/.gitkeep
+
+docker-up:
+	./scripts/docker-up.sh

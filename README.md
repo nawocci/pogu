@@ -91,10 +91,11 @@ docker build -t pogu .
 docker run -d --name pogu -p 127.0.0.1:8099:8099 -v pogu-data:/data --restart unless-stopped pogu
 ```
 
-Or with compose:
+Or with compose (prints the setup token automatically on first boot):
 
 ```sh
-docker compose up -d --build
+make docker-up
+# equivalent: ./scripts/docker-up.sh
 ```
 
 Prebuilt images publish to `ghcr.io/nawocci/pogu` on pushes to
@@ -103,7 +104,11 @@ Prebuilt images publish to `ghcr.io/nawocci/pogu` on pushes to
 The image is distroless and runs as a non-root user; all state lives
 in `/data` (SQLite database, `master.key`, config), so keep it on a
 volume. On first boot with an empty volume the server starts in setup
-mode and prints a one-time setup token to its logs:
+mode and prints a one-time setup token to its logs (both as a JSON
+`setup token` field and as a plain `Pogu initial setup token: ...`
+line). `make docker-up` brings the stack up detached and then prints
+the token for you; if you started the stack manually instead, grab it
+with:
 
 ```sh
 docker logs pogu 2>&1 | grep 'setup token'

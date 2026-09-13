@@ -2,6 +2,7 @@ services:
   pogu:
     build: .
     image: ghcr.io/nawocci/pogu:latest
+    container_name: pogu
     ports:
       - '127.0.0.1:8099:8099'
     volumes:
