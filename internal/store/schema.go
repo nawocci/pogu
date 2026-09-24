@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS providers (
   base_url TEXT NOT NULL,
   key_selection TEXT NOT NULL DEFAULT 'first' CHECK (key_selection IN ('first','round_robin')),
   enabled INTEGER NOT NULL DEFAULT 1,
-  builtin TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 )`

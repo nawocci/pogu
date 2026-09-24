@@ -11,7 +11,6 @@ export interface Provider {
   key_count: number;
   key_selection: KeySelection;
   enabled: boolean;
-  builtin: string;
   created_at: string;
   updated_at: string;
 }
@@ -260,13 +259,6 @@ export interface TestResult {
   models?: string[];
 }
 
-export interface OpenCodeSyncSummary {
-  catalog: number;
-  free: number;
-  added: number;
-  disabled: number;
-}
-
 export interface CreatedKeyResponse {
   key: ApiKey;
   secret: string;
@@ -365,8 +357,6 @@ export const api = {
   deleteProvider: (id: number) => request<void>(`/api/providers/${id}`, { method: 'DELETE' }),
   testProvider: (id: number) =>
     request<TestResult>(`/api/providers/${id}/test`, { method: 'POST' }),
-  syncProvider: (id: number) =>
-    request<OpenCodeSyncSummary>(`/api/providers/${id}/sync`, { method: 'POST' }),
 
   providerKeys: (providerId: number) =>
     request<ProviderKey[]>(`/api/providers/${providerId}/keys`),

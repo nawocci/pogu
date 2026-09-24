@@ -73,21 +73,13 @@
                 class="shrink-0 rounded-full border border-accent-dim bg-accent-dim px-2 py-px font-mono text-[10px] font-medium tracking-[0.04em] text-accent-ink"
                 title="Route prefix — {p.prefix}/&lt;model&gt;"
               >{p.prefix}</code>
-              {#if p.builtin}
-                <span
-                  class="shrink-0 rounded-full border border-line px-2 py-px font-mono text-[10px] font-medium tracking-[0.04em] text-tertiary uppercase"
-                  title="Built-in provider — permanent, no API key required"
-                >Built-in</span>
-              {/if}
             </span>
             <code class="truncate font-mono text-[11.5px] leading-[1.4] text-tertiary">{p.base_url}</code>
           </span>
           <span class="flex gap-[18px] font-mono text-[11.5px] whitespace-nowrap text-tertiary max-wide:hidden">
             <span title="Native upstream API"><b class="font-semibold text-paper">{typeLabel(p.type)}</b></span>
-            {#if !p.builtin}
-              <span><b class="font-semibold text-paper">{p.key_count}</b> key{p.key_count === 1 ? '' : 's'}</span>
-              <span title="Upstream API key selection strategy">{selectionLabel(p.key_selection)}</span>
-            {/if}
+            <span><b class="font-semibold text-paper">{p.key_count}</b> key{p.key_count === 1 ? '' : 's'}</span>
+            <span title="Upstream API key selection strategy">{selectionLabel(p.key_selection)}</span>
           </span>
           <span class="card-lift">
             <Lamp state={p.enabled ? 'on' : 'off'} label={p.enabled ? 'Enabled' : 'Disabled'} wide="Disabled" />
@@ -101,11 +93,9 @@
             >
               <Busy busy={busyToggles.has(p.id)} text={p.enabled ? 'Disable' : 'Enable'} wide="Disable" />
             </button>
-            {#if !p.builtin}
             <button class="btn-ghost" onclick={() => armed.confirm('p' + p.id, () => remove(p))}>
               <Fit text={armed.is('p' + p.id) ? 'Confirm?' : 'Delete'} wide="Confirm?" />
             </button>
-            {/if}
           </span>
         </div>
       </li>

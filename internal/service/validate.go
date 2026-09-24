@@ -17,7 +17,6 @@ var (
 	ErrAlreadyExists  = errors.New("already exists")
 	ErrNoCredentials  = errors.New("no enabled provider credentials")
 	ErrNoGroupTargets = errors.New("group has no available targets")
-	ErrBuiltin        = errors.New("built-in provider is permanent")
 )
 
 var (
@@ -27,10 +26,6 @@ var (
 	keyNamePattern = regexp.MustCompile(`^Key\s+(\d+)$`)
 )
 
-const reservedPrefix = "oc"
-
-func IsReservedPrefix(prefix string) bool { return prefix == reservedPrefix }
-
 func ValidProviderPrefix(prefix string) bool { return prefixPattern.MatchString(prefix) }
 
 func validateProviderInput(name string, typ ProviderType, prefix, baseURL string) error {
@@ -39,9 +34,6 @@ func validateProviderInput(name string, typ ProviderType, prefix, baseURL string
 	}
 	if !prefixPattern.MatchString(prefix) {
 		return fmt.Errorf("%w: prefix must use lowercase letters, numbers, and hyphens", ErrValidation)
-	}
-	if IsReservedPrefix(prefix) {
-		return fmt.Errorf("%w: prefix %q is reserved for the built-in provider", ErrValidation, prefix)
 	}
 	return nil
 }

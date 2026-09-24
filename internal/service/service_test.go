@@ -33,7 +33,6 @@ func TestProviderValidation(t *testing.T) {
 	}{
 		{"", "oa", "https://x.test/v1", ProviderOpenAI, "name is required"},
 		{"OA", "Bad_Prefix", "https://x.test/v1", ProviderOpenAI, "prefix must use"},
-		{"OA", "oc", "https://x.test/v1", ProviderOpenAI, "reserved"},
 		{"OA", "oa", "notaurl", ProviderOpenAI, "base_url must be"},
 		{"OA", "oa", "https://x.test/v1", "bogus", "type must be"},
 	} {

@@ -68,7 +68,7 @@ func controlResource(dataDir, resource string, args []string) error {
 }
 
 // fillUpdateDefaults makes CLI updates partial: omitted flags inherit stored
-// values instead of blanking fields (which also tripped the built-in freeze).
+// values instead of blanking fields.
 func fillUpdateDefaults(ctx context.Context, client *control.Client, resource string, visited map[string]bool, req *control.Request) error {
 	if !strings.HasSuffix(req.Op, ".update") {
 		return nil

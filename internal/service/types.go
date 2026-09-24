@@ -70,7 +70,6 @@ type Provider struct {
 	KeyCount     int          `json:"key_count"`
 	KeySelection KeySelection `json:"key_selection"`
 	Enabled      bool         `json:"enabled"`
-	Builtin      string       `json:"builtin"`
 	CreatedAt    time.Time    `json:"created_at"`
 	UpdatedAt    time.Time    `json:"updated_at"`
 }

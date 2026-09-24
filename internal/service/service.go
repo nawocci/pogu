@@ -10,14 +10,8 @@ import (
 )
 
 type Service struct {
-	Store     *store.Store
-	MasterKey []byte
-
-	OpenCodeCatalogURL string
-	OpenCodeDocsURL    string
-
-	OpenCodeDocsCacheFile string
-
+	Store           *store.Store
+	MasterKey       []byte
 	CavemanSkillURL string
 	cavemanMu       sync.RWMutex
 	cavemanSkill    *CavemanSkill

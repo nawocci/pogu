@@ -49,7 +49,7 @@ func writeProtocolError(w http.ResponseWriter, protocol string, status int, mess
 
 func writeServiceError(w http.ResponseWriter, err error) {
 	switch {
-	case errors.Is(err, service.ErrValidation), errors.Is(err, service.ErrAlreadyExists), errors.Is(err, service.ErrBuiltin):
+	case errors.Is(err, service.ErrValidation), errors.Is(err, service.ErrAlreadyExists):
 		jsonError(w, http.StatusBadRequest, err.Error())
 	case errors.Is(err, store.ErrNotFound):
 		jsonError(w, http.StatusNotFound, "not found")

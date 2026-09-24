@@ -1,7 +1,10 @@
 package provider
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -91,6 +94,15 @@ func toolCallsOf(msg map[string]any) []chatToolCall {
 		out = append(out, chatToolCall{id: id, name: name, arguments: args})
 	}
 	return out
+}
+
+func randomHexID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		now := time.Now().UnixNano()
+		return fmt.Sprintf("%016x%016x", now, now)
+	}
+	return hex.EncodeToString(b[:])
 }
 
 func upstreamModelName(body []byte) string {

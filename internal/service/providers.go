@@ -11,14 +11,14 @@ import (
 	"github.com/nawocci/pogu/internal/store"
 )
 
-const providerSelect = `SELECT p.id, p.name, p.type, p.prefix, p.base_url, p.key_selection, p.enabled, p.created_at, p.updated_at, (SELECT COUNT(1) FROM provider_keys pk WHERE pk.provider_id=p.id), p.builtin FROM providers p`
+const providerSelect = `SELECT p.id, p.name, p.type, p.prefix, p.base_url, p.key_selection, p.enabled, p.created_at, p.updated_at, (SELECT COUNT(1) FROM provider_keys pk WHERE pk.provider_id=p.id) FROM providers p`
 
 func scanProvider(row interface{ Scan(...any) error }) (Provider, error) {
 	var p Provider
 	var typ, keySel string
 	var enabled, keyCount int
 	var created, updated string
-	err := row.Scan(&p.ID, &p.Name, &typ, &p.Prefix, &p.BaseURL, &keySel, &enabled, &created, &updated, &keyCount, &p.Builtin)
+	err := row.Scan(&p.ID, &p.Name, &typ, &p.Prefix, &p.BaseURL, &keySel, &enabled, &created, &updated, &keyCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Provider{}, store.ErrNotFound
 	}
@@ -97,24 +97,16 @@ func (s *Service) UpdateProvider(ctx context.Context, id int64, name string, typ
 	name = strings.TrimSpace(name)
 	prefix = strings.TrimSpace(prefix)
 	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	existing, err := s.GetProvider(ctx, id)
-	if err != nil {
+	if _, err := s.GetProvider(ctx, id); err != nil {
 		return Provider{}, err
 	}
-	if existing.Builtin != "" {
-		if name != existing.Name || typ != existing.Type || prefix != existing.Prefix || baseURL != existing.BaseURL {
-			return Provider{}, fmt.Errorf("%w: built-in provider details are managed and cannot be changed", ErrBuiltin)
-		}
-	} else if err := validateProviderInput(name, typ, prefix, baseURL); err != nil {
+	if err := validateProviderInput(name, typ, prefix, baseURL); err != nil {
 		return Provider{}, err
 	}
 	ks := KeySelectionFirst
 	if len(keySelection) > 0 && keySelection[0] != "" {
 		if !keySelection[0].Valid() {
 			return Provider{}, fmt.Errorf("%w: key_selection must be 'first' or 'round_robin'", ErrValidation)
-		}
-		if existing.Builtin != "" && keySelection[0] != existing.KeySelection {
-			return Provider{}, fmt.Errorf("%w: built-in provider details are managed and cannot be changed", ErrBuiltin)
 		}
 		ks = keySelection[0]
 	} else {
@@ -139,12 +131,8 @@ func (s *Service) UpdateProvider(ctx context.Context, id int64, name string, typ
 }
 
 func (s *Service) DeleteProvider(ctx context.Context, id int64) error {
-	p, err := s.GetProvider(ctx, id)
-	if err != nil {
+	if _, err := s.GetProvider(ctx, id); err != nil {
 		return err
-	}
-	if p.Builtin != "" {
-		return fmt.Errorf("%w: disable it instead", ErrBuiltin)
 	}
 	result, err := s.Store.DB.ExecContext(ctx, `DELETE FROM providers WHERE id=?`, id)
 	if err != nil {

@@ -53,15 +53,6 @@ Translation is faithful but lossy at the edges: provider-opaque state
 reasoning text or is dropped, and features with no equivalent do not cross
 over. Anything a stock client can express in chat semantics survives intact.
 
-Pogu ships a permanent, disabled-by-default **OpenCode Free** provider
-(`oc`) that needs no API key. Enable it and pogu syncs the live free-model
-catalog into routable models automatically — a weekly background sync, or
-`POST /api/providers/{id}/sync` (also `pogu provider sync`) to refresh on
-demand. The provider cannot be deleted, only disabled; its
-models are sync-managed. The free-model set and per-model wire schemes come
-from the Zen docs page (cached under `data/`); if the docs cannot be fetched
-the sync fails loudly and changes nothing.
-
 ## Requirements
 
 - Go 1.27+ to build (Node.js 22+ only needed to modify the admin UI)
@@ -227,7 +218,7 @@ pogu init --data-dir DIR --password PASSWORD   # first-time setup
 pogu serve --data-dir DIR [--listen HOST:PORT] # start the daemon
 pogu status --data-dir DIR                     # daemon + resource summary
 
-  pogu provider list|create|get|update|delete|test|sync --data-dir DIR [...]
+  pogu provider list|create|get|update|delete|test --data-dir DIR [...]
 pogu provider key list|create|get|update|enable|disable|primary|delete|test|import --data-dir DIR [...]
 pogu model    list|create|get|update|delete    --data-dir DIR [...]
 pogu key      list|create|revoke               --data-dir DIR [...]
@@ -239,9 +230,7 @@ directory (mode 0600) and use the same application logic as the web API — no
 admin password required, but only accessible to the local user.
 
 `POGU_DATA_DIR` may be set instead of passing `--data-dir`; `POGU_ADMIN_PASSWORD`
-can replace `--password` during init. `POGU_OPENCODE_DOCS_URL` overrides the
-Zen docs source used for free-model discovery (defaults to the upstream docs
-page).
+can replace `--password` during init.
 
 ## Data layout
 
@@ -251,7 +240,6 @@ data/
   pogu.db       SQLite database (providers, models, key hashes, sessions,
                 request telemetry)
   master.key    256-bit master encryption key (0600)
-  opencode-docs-cache.json  cached Zen docs free-model set (refreshed by sync)
   pogu.sock     daemon control socket (while serving)
 ```
 
@@ -274,8 +262,8 @@ data/
 ### Management (`/api/...`, admin session via login)
 
 Full CRUD for providers, models, model groups (including member management
-and ordering), and API keys, plus provider connectivity testing, catalog sync
-for the built-in provider, and live/historical monitoring queries. The
+and ordering), and API keys, plus provider connectivity testing
+and live/historical monitoring queries. The
 Configurations page covers the rest: administrator password changes (`POST
 /api/auth/password`, current password required, all sessions rotate) and the
 global system prompt (`GET`/`PUT /api/settings/prompt`). Provider

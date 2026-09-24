@@ -66,7 +66,6 @@ func (a *API) Handler(static http.Handler) http.Handler {
 	mux.HandleFunc("PUT /api/providers/{id}", a.updateProvider)
 	mux.HandleFunc("DELETE /api/providers/{id}", a.deleteProvider)
 	mux.HandleFunc("POST /api/providers/{id}/test", a.testProvider)
-	mux.HandleFunc("POST /api/providers/{id}/sync", a.syncProvider)
 	mux.HandleFunc("GET /api/providers/{id}/keys", a.listProviderKeys)
 	mux.HandleFunc("POST /api/providers/{id}/keys", a.createProviderKey)
 	mux.HandleFunc("POST /api/providers/{id}/keys/import", a.importProviderKeys)

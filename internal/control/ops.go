@@ -53,15 +53,6 @@ func (s *Server) execute(ctx context.Context, r Request) (any, error) {
 		return s.Service.UpdateProvider(ctx, r.ID, r.Name, r.Type, r.Prefix, r.BaseURL, enabled, r.KeySelection)
 	case "provider.delete":
 		return nil, s.Service.DeleteProvider(ctx, r.ID)
-	case "provider.sync":
-		p, err := s.Service.GetProvider(ctx, r.ID)
-		if err != nil {
-			return nil, err
-		}
-		if p.Builtin == "" {
-			return nil, errors.New("catalog sync is only supported for the built-in provider")
-		}
-		return s.Service.SyncOpenCodeModels(ctx)
 	case "provider.test":
 		if s.tester == nil {
 			return nil, errors.New("provider connectivity test unavailable")
@@ -189,8 +180,6 @@ func failureFor(err error) Response {
 	switch {
 	case errors.Is(err, service.ErrValidation):
 		code, message = "validation", err.Error()
-	case errors.Is(err, service.ErrBuiltin):
-		code, message = "builtin", err.Error()
 	case errors.Is(err, service.ErrAlreadyExists):
 		code, message = "already_exists", err.Error()
 	case errors.Is(err, store.ErrNotFound):
