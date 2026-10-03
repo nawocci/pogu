@@ -17,6 +17,7 @@
   import GroupDetail from './lib/pages/GroupDetail.svelte';
   import Connections from './lib/pages/Connections.svelte';
   import Monitoring from './lib/pages/Monitoring.svelte';
+  import Prompts from './lib/pages/Prompts.svelte';
   import Configurations from './lib/pages/Configurations.svelte';
   import NotFound from './lib/pages/NotFound.svelte';
 
@@ -118,6 +119,8 @@
                   <GroupDetail groupId={router.route.groupId} />
                 {:else if router.route.name === 'monitoring'}
                   <Monitoring />
+                {:else if router.route.name === 'prompts'}
+                  <Prompts />
                 {:else if router.route.name === 'configurations'}
                   <Configurations />
                 {:else}

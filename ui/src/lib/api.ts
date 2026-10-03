@@ -274,6 +274,32 @@ export interface GlobalPrompt {
   enabled: boolean;
 }
 
+export interface PromptRuleTarget {
+  target_type: 'group' | 'model';
+  target_id: number;
+  label: string;
+}
+
+export interface PromptRule {
+  id: number;
+  name: string;
+  prompt: string;
+  inherit: boolean;
+  enabled: boolean;
+  position: number;
+  targets: PromptRuleTarget[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromptRuleInput {
+  name: string;
+  prompt: string;
+  inherit: boolean;
+  enabled: boolean;
+  targets: PromptRuleTarget[];
+}
+
 export interface CavemanLevelMeta {
   id: string;
   label: string;
@@ -432,6 +458,19 @@ export const api = {
   globalPrompt: () => request<GlobalPrompt>('/api/settings/prompt'),
   updateGlobalPrompt: (input: GlobalPrompt) =>
     request<GlobalPrompt>('/api/settings/prompt', { method: 'PUT', body: JSON.stringify(input) }),
+
+  promptRules: () => request<PromptRule[]>('/api/prompt-rules'),
+  createPromptRule: (input: PromptRuleInput) =>
+    request<PromptRule>('/api/prompt-rules', { method: 'POST', body: JSON.stringify(input) }),
+  updatePromptRule: (id: number, input: PromptRuleInput) =>
+    request<PromptRule>(`/api/prompt-rules/${id}`, { method: 'PUT', body: JSON.stringify(input) }),
+  deletePromptRule: (id: number) =>
+    request<void>(`/api/prompt-rules/${id}`, { method: 'DELETE' }),
+  reorderPromptRules: (ruleIds: number[]) =>
+    request<PromptRule[]>('/api/prompt-rules/order', {
+      method: 'POST',
+      body: JSON.stringify({ rule_ids: ruleIds }),
+    }),
 
   cavemanSettings: () => request<CavemanSettings>('/api/settings/caveman'),
   updateCavemanSettings: (input: { enabled: boolean; level: string }) =>

@@ -21,6 +21,7 @@
   const isProviders = $derived(router.route.name === 'providers' || router.route.name === 'provider-detail');
   const isGroups = $derived(router.route.name === 'groups' || router.route.name === 'group-detail');
   const isMonitoring = $derived(router.route.name === 'monitoring');
+  const isPrompts = $derived(router.route.name === 'prompts');
   const isConfigurations = $derived(router.route.name === 'configurations');
 
   async function signOut() {
@@ -104,6 +105,17 @@
         <span class="flex min-w-0 items-center gap-2.5">
           <span class="grid size-5 shrink-0 place-items-center"><Icon name="monitoring" size={18} /></span>
           {#if expanded}<span class="truncate" in:quickFade={{ duration: 160 }}>Monitoring</span>{/if}
+        </span>
+      </a>
+      <a
+        href="/prompts"
+        class="nav-item {isPrompts ? 'nav-item-active' : ''}"
+        aria-current={isPrompts ? 'page' : undefined}
+        title="System prompts"
+      >
+        <span class="flex min-w-0 items-center gap-2.5">
+          <span class="grid size-5 shrink-0 place-items-center"><Icon name="prompts" size={18} /></span>
+          {#if expanded}<span class="truncate" in:quickFade={{ duration: 160 }}>System prompts</span>{/if}
         </span>
       </a>
       <a
@@ -237,6 +249,15 @@
       title="Monitoring"
     >
       <span class="grid size-5 place-items-center"><Icon name="monitoring" size={20} /></span>
+    </a>
+    <a
+      href="/prompts"
+      class="nav-item {isPrompts ? 'nav-item-active' : ''} max-compact:flex-1 max-compact:flex-col max-compact:items-center max-compact:justify-center max-compact:gap-0 max-compact:rounded-none max-compact:px-1 max-compact:py-3"
+      aria-current={isPrompts ? 'page' : undefined}
+      aria-label="System prompts"
+      title="System prompts"
+    >
+      <span class="grid size-5 place-items-center"><Icon name="prompts" size={20} /></span>
     </a>
     <a
       href="/configurations"

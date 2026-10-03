@@ -1,4 +1,4 @@
-import { api, type Provider, type Group } from './api'
+import { api, type Provider, type Group, type Model } from './api'
 
 export const app = $state({
   authenticated: false,
@@ -7,14 +7,20 @@ export const app = $state({
 class ProvidersStore {
   providers = $state<Provider[]>([])
   groups = $state<Group[]>([])
+  models = $state<Model[]>([])
   loaded = $state(false)
   error = $state('')
 
   async refresh() {
     try {
-      const [providers, groups] = await Promise.all([api.providers(), api.groups()])
+      const [providers, groups, models] = await Promise.all([
+        api.providers(),
+        api.groups(),
+        api.models(),
+      ])
       this.providers = providers ?? []
       this.groups = groups ?? []
+      this.models = models ?? []
       this.loaded = true
       this.error = ''
     } catch (e) {
