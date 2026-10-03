@@ -113,7 +113,15 @@ CREATE TABLE IF NOT EXISTS telemetry_attempts (
   total_tokens INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_attempt_request ON telemetry_attempts(request_id);
-CREATE INDEX IF NOT EXISTS idx_attempt_provider ON telemetry_attempts(provider_id)`
+CREATE INDEX IF NOT EXISTS idx_attempt_provider ON telemetry_attempts(provider_id);
+CREATE TABLE IF NOT EXISTS telemetry_prompt_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  request_id TEXT NOT NULL REFERENCES telemetry_requests(id) ON DELETE CASCADE,
+  position INTEGER NOT NULL DEFAULT 0,
+  rule_id INTEGER,
+  rule_name TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_telemetry_prompt_rules_request ON telemetry_prompt_rules(request_id)`
 
 var schema = []string{
 	schemaProviders,
@@ -123,7 +131,28 @@ var schema = []string{
 	schemaTelemetry,
 	schemaGroups,
 	schemaSettings,
+	schemaPromptRules,
 }
+
+const schemaPromptRules = `
+CREATE TABLE IF NOT EXISTS prompt_rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  prompt TEXT NOT NULL DEFAULT '',
+  inherit INTEGER NOT NULL DEFAULT 1,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS prompt_rule_targets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id INTEGER NOT NULL REFERENCES prompt_rules(id) ON DELETE CASCADE,
+  target_type TEXT NOT NULL CHECK (target_type IN ('group','model')),
+  target_id INTEGER NOT NULL,
+  UNIQUE (target_type, target_id)
+);
+CREATE INDEX IF NOT EXISTS idx_prompt_rule_targets_rule ON prompt_rule_targets(rule_id)`
 
 const schemaSettings = `
 CREATE TABLE IF NOT EXISTS settings (
