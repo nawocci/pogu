@@ -83,6 +83,14 @@ type Attempt struct {
 type RequestWithAttempts struct {
 	Request
 	Attempts []Attempt
+	Prompts  []PromptRuleRef
+}
+
+// PromptRuleRef records which named prompt rule fired for a request. Prompt
+// text is never stored, only the rule name.
+type PromptRuleRef struct {
+	RuleID   int64  `json:"rule_id"`
+	RuleName string `json:"rule_name"`
 }
 
 type Recorder struct {
@@ -172,6 +180,31 @@ func (r *Recorder) RecordResolution(id string, groupID *int64, groupName *string
 		return fmt.Errorf("telemetry: record resolution: %w", err)
 	}
 	return nil
+}
+
+func (r *Recorder) RecordPromptRules(requestID string, segments []PromptRuleRef) error {
+	ctx, cancel := writeCtx()
+	defer cancel()
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("telemetry: begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `DELETE FROM telemetry_prompt_rules WHERE request_id=?`, requestID); err != nil {
+		return fmt.Errorf("telemetry: clear prompt rules: %w", err)
+	}
+	for i, seg := range segments {
+		var ruleID any
+		if seg.RuleID != 0 {
+			ruleID = seg.RuleID
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO telemetry_prompt_rules(request_id,position,rule_id,rule_name) VALUES(?,?,?,?)`,
+			requestID, i, ruleID, seg.RuleName); err != nil {
+			return fmt.Errorf("telemetry: insert prompt rule: %w", err)
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *Recorder) StartAttempt(attempt *Attempt) error {
@@ -297,8 +330,35 @@ func (r *Recorder) List(ctx context.Context, limit int) ([]RequestWithAttempts, 
 			return nil, err
 		}
 		out[i].Attempts = attempts
+		prompts, err := r.listPromptRules(ctx, out[i].ID)
+		if err != nil {
+			return nil, err
+		}
+		out[i].Prompts = prompts
 	}
 	return out, nil
+}
+
+func (r *Recorder) listPromptRules(ctx context.Context, requestID string) ([]PromptRuleRef, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT rule_id, rule_name FROM telemetry_prompt_rules WHERE request_id=? ORDER BY position`, requestID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PromptRuleRef
+	for rows.Next() {
+		var ref PromptRuleRef
+		var ruleID sql.NullInt64
+		if err := rows.Scan(&ruleID, &ref.RuleName); err != nil {
+			return nil, err
+		}
+		if ruleID.Valid {
+			ref.RuleID = ruleID.Int64
+		}
+		out = append(out, ref)
+	}
+	return out, rows.Err()
 }
 
 func (r *Recorder) listAttempts(ctx context.Context, requestID string) ([]Attempt, error) {

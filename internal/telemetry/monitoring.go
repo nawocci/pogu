@@ -159,28 +159,29 @@ type AttemptView struct {
 }
 
 type MonitoringRecord struct {
-	RequestID     string        `json:"request_id"`
-	Protocol      string        `json:"protocol"`
-	TS            time.Time     `json:"ts"`
-	KeyID         *int64        `json:"key_id"`
-	KeyName       *string       `json:"key_name"`
-	Model         string        `json:"model"`
-	ResolvedModel *string       `json:"resolved_model"`
-	ServedModel   *string       `json:"served_model"`
-	GroupID       *int64        `json:"group_id"`
-	GroupName     *string       `json:"group_name"`
-	Provider      string        `json:"provider"`
-	Status        *int          `json:"http_status"`
-	Error         ErrorCategory `json:"error"`
-	Cancelled     bool          `json:"cancelled"`
-	Stream        bool          `json:"stream"`
-	InputTokens   *int64        `json:"input_tokens"`
-	OutputTokens  *int64        `json:"output_tokens"`
-	TotalTokens   *int64        `json:"total_tokens"`
-	LatencyMS     *int64        `json:"latency_ms"`
-	TTFTMS        *int64        `json:"ttft_ms"`
-	UpstreamMS    *int64        `json:"upstream_ms"`
-	Attempts      []AttemptView `json:"attempts"`
+	RequestID     string          `json:"request_id"`
+	Protocol      string          `json:"protocol"`
+	TS            time.Time       `json:"ts"`
+	KeyID         *int64          `json:"key_id"`
+	KeyName       *string         `json:"key_name"`
+	Model         string          `json:"model"`
+	ResolvedModel *string         `json:"resolved_model"`
+	ServedModel   *string         `json:"served_model"`
+	GroupID       *int64          `json:"group_id"`
+	GroupName     *string         `json:"group_name"`
+	Provider      string          `json:"provider"`
+	Status        *int            `json:"http_status"`
+	Error         ErrorCategory   `json:"error"`
+	Cancelled     bool            `json:"cancelled"`
+	Stream        bool            `json:"stream"`
+	InputTokens   *int64          `json:"input_tokens"`
+	OutputTokens  *int64          `json:"output_tokens"`
+	TotalTokens   *int64          `json:"total_tokens"`
+	LatencyMS     *int64          `json:"latency_ms"`
+	TTFTMS        *int64          `json:"ttft_ms"`
+	UpstreamMS    *int64          `json:"upstream_ms"`
+	Attempts      []AttemptView   `json:"attempts"`
+	PromptRules   []PromptRuleRef `json:"prompt_rules"`
 }
 
 type rowScan struct {
@@ -244,6 +245,7 @@ func scanMonitoringRow(rows *sql.Rows) (rowScan, error) {
 		r.Provider = s.lastProvider.String
 	}
 	r.Attempts = []AttemptView{}
+	r.PromptRules = []PromptRuleRef{}
 	return s, nil
 }
 
@@ -291,15 +293,53 @@ func (r *Recorder) collectRows(ctx context.Context, rows *sql.Rows) ([]Monitorin
 	if err != nil {
 		return nil, err
 	}
+	promptsByReq, err := r.promptRulesFor(ctx, order)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]MonitoringRecord, 0, len(scans))
 	for _, s := range scans {
 		rec := s.rec
 		if atts, ok := attByReq[rec.RequestID]; ok {
 			rec.Attempts = atts
 		}
+		if refs, ok := promptsByReq[rec.RequestID]; ok {
+			rec.PromptRules = refs
+		}
 		out = append(out, rec)
 	}
 	return out, nil
+}
+
+func (r *Recorder) promptRulesFor(ctx context.Context, ids []string) (map[string][]PromptRuleRef, error) {
+	out := make(map[string][]PromptRuleRef, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	place := strings.TrimRight(strings.Repeat("?,", len(ids)), ",")
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT request_id, rule_id, rule_name FROM telemetry_prompt_rules WHERE request_id IN (`+place+`) ORDER BY request_id, position`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var reqID string
+		var ref PromptRuleRef
+		var ruleID sql.NullInt64
+		if err := rows.Scan(&reqID, &ruleID, &ref.RuleName); err != nil {
+			return nil, err
+		}
+		if ruleID.Valid {
+			ref.RuleID = ruleID.Int64
+		}
+		out[reqID] = append(out[reqID], ref)
+	}
+	return out, rows.Err()
 }
 
 func (r *Recorder) attemptViewsFor(ctx context.Context, ids []string) (map[string][]AttemptView, error) {
