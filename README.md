@@ -264,25 +264,53 @@ data/
 Full CRUD for providers, models, model groups (including member management
 and ordering), and API keys, plus provider connectivity testing
 and live/historical monitoring queries. The
-Configurations page covers the rest: administrator password changes (`POST
-/api/auth/password`, current password required, all sessions rotate) and the
-global system prompt (`GET`/`PUT /api/settings/prompt`). Provider
-credentials are never returned after storage; key secrets are returned only
-at creation.
+Configurations page covers administrator password changes (`POST
+/api/auth/password`, current password required, all sessions rotate) and
+Caveman mode; the System prompts page covers the global prompt and prompt
+rules (`GET`/`PUT /api/settings/prompt`, `GET`/`POST /api/prompt-rules`,
+`PUT`/`DELETE /api/prompt-rules/{id}`, `POST /api/prompt-rules/order`).
+Provider credentials are never returned after storage; key secrets are
+returned only at creation.
 
-### Global system prompt
+### System prompts
 
-Persistent user-level preferences, like a router-side `AGENTS.md`: when
-enabled, the prompt is appended after the request's own system instructions
-under a `Pogu router preferences` marker (a new first message when the
-request has no system content), on both endpoints and for every model.
-Request content is never modified beyond this append, and telemetry never
-stores prompt text.
+System prompts are layered. A **global base** prompt (like a router-side
+`AGENTS.md`) applies to every request; on top of it, an ordered list of
+**rules** each add a prompt when their targets are called. Rules are managed
+on the System prompts page and can target logical model groups, concrete
+models, or both; a target can be claimed by only one rule.
+
+Resolution for a request:
+
+- **Direct** `prefix/model` call — the global base, then any rule targeting
+  that model.
+- **Group** call — the global base, then any rule targeting the group, then
+  any rule targeting the model that actually serves the request.
+
+A group rule fires only when clients call the group by name; a direct call to
+a group member does not pick it up. Model rules follow the served target, so
+they apply whether the model is called directly or resolved through a group —
+and change with group failover, which is intentional (a correction for a
+misbehaving model should not apply to a fallback that behaves).
+
+Rules stack in list order (rearrangeable), each rendered under its own
+`Pogu router preferences (rule name)` marker, so the global base stays
+identifiable and segments stay attributable. Each rule has an **Also apply
+global prompt** toggle (default on): when off, that rule suppresses the base
+for requests it matches. When both a group and a model rule match, the more
+specific (model) rule decides the global toggle. Every prompt is appended
+after the request's own system instructions (a new first message when the
+request has no system content) on both endpoints. Request content is never
+modified beyond these appends, telemetry never stores prompt text — only the
+rule **names** that fired — and a request may opt out entirely with the
+`X-Pogu-Prompt: off` header, or force a single named rule with
+`X-Pogu-Prompt: <rule name>`.
 
 ## Request telemetry
 
 Every AI request proxied by pogu is recorded as operational metadata in two
-SQLite tables: one row per request and one row per upstream attempt. Recorded
+SQLite tables: one row per request, one row per upstream attempt, and one row
+per prompt rule that fired. Recorded
 per request: a random request ID (also returned as `X-Request-Id`), inbound
 protocol, the public model identifier as the client sent it, streaming flag,
 client key ID, outcome, HTTP status, error category, timing, and token usage
