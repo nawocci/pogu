@@ -73,6 +73,34 @@ func TestInjectChatPromptPassthrough(t *testing.T) {
 	}
 }
 
+func TestInjectChatPromptLabeled(t *testing.T) {
+	out := InjectChatPromptLabeled([]byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`), "Use tools.", "Tool-use correction")
+	messages := chatMessages(t, out)
+	first := messages[0].(map[string]any)
+	content := first["content"].(string)
+	if !strings.Contains(content, "Pogu router preferences (Tool-use correction):") {
+		t.Fatalf("labeled marker missing: %q", content)
+	}
+	if !strings.Contains(content, "Use tools.") {
+		t.Fatalf("prompt missing: %q", content)
+	}
+	// An empty label falls back to the plain marker.
+	plain := InjectChatPromptLabeled([]byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`), "x", "  ")
+	if !strings.Contains(string(plain), "Pogu router preferences:") {
+		t.Fatalf("plain marker missing: %s", plain)
+	}
+}
+
+func TestInjectAnthropicPromptLabeled(t *testing.T) {
+	out := InjectAnthropicPromptLabeled([]byte(`{"model":"m","messages":[]}`), "Use tools.", "Fix")
+	var v struct {
+		System string `json:"system"`
+	}
+	if err := json.Unmarshal(out, &v); err != nil || !strings.Contains(v.System, "Pogu router preferences (Fix):") {
+		t.Fatalf("labeled anthropic marker missing: %s", out)
+	}
+}
+
 func TestInjectAnthropicPrompt(t *testing.T) {
 	out := InjectAnthropicPrompt([]byte(`{"model":"m","messages":[]}`), "Be brief.")
 	var v struct {
