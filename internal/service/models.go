@@ -96,14 +96,25 @@ func (s *Service) UpdateModel(ctx context.Context, id int64, name string, enable
 }
 
 func (s *Service) DeleteModel(ctx context.Context, id int64) error {
-	result, err := s.Store.DB.ExecContext(ctx, `DELETE FROM models WHERE id=?`, id)
+	tx, err := s.Store.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	n, _ := result.RowsAffected()
-	if n == 0 {
+	defer tx.Rollback()
+	if err := deletePromptTargetsFor(ctx, tx, PromptTargetModel, id); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM models WHERE id=?`, id)
+	if err != nil {
+		return err
+	}
+	if n, _ := result.RowsAffected(); n == 0 {
 		return store.ErrNotFound
 	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.invalidatePromptRules()
 	return nil
 }
 

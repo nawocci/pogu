@@ -160,13 +160,25 @@ func (s *Service) SetGroupSelection(ctx context.Context, id int64, selection Key
 }
 
 func (s *Service) DeleteGroup(ctx context.Context, id int64) error {
-	result, err := s.Store.DB.ExecContext(ctx, `DELETE FROM groups WHERE id=?`, id)
+	tx, err := s.Store.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := deletePromptTargetsFor(ctx, tx, PromptTargetGroup, id); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM groups WHERE id=?`, id)
 	if err != nil {
 		return err
 	}
 	if n, _ := result.RowsAffected(); n == 0 {
 		return store.ErrNotFound
 	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	s.invalidatePromptRules()
 	return nil
 }
 

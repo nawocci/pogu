@@ -16,6 +16,10 @@ type Service struct {
 	cavemanMu       sync.RWMutex
 	cavemanSkill    *CavemanSkill
 
+	promptMu     sync.RWMutex
+	promptLoaded bool
+	promptRules  []promptRule
+
 	rrMu      sync.Mutex
 	rrCursors map[string]uint64
 }
