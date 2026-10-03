@@ -160,29 +160,33 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 		cavemanPrompt, _ = a.Service.ActiveCavemanPrompt(r.Context())
 	}
 
+	// Router prompts are resolved per served target: model rules follow whichever
+	// model actually handles the request, including across group failover. Keep a
+	// pristine post-translation snapshot because injection is not reversible.
+	baseBody := body
+	baseRawBody := rawBody
+	var groupID *int64
+	if isGroup {
+		groupID = &group.ID
+	}
+	globalPrompt := ""
 	if text, enabled, err := a.Service.GetGlobalPrompt(r.Context()); err == nil {
-		if prompt := service.ActivePrompt(text, enabled); prompt != "" {
-			body = provider.InjectChatPrompt(body, prompt)
-			if protocol == "anthropic" {
-				rawBody = provider.InjectAnthropicPrompt(rawBody, prompt)
-			}
-		}
+		globalPrompt = service.ActivePrompt(text, enabled)
 	}
-
-	if cavemanPrompt != "" {
-		body = provider.InjectChatPrompt(body, cavemanPrompt)
-		if protocol == "anthropic" {
-			rawBody = provider.InjectAnthropicPrompt(rawBody, cavemanPrompt)
-		}
-	}
+	promptOverride := strings.TrimSpace(r.Header.Get("X-Pogu-Prompt"))
 
 	var lastProxyErr error
 	lastHTTPStatus := http.StatusBadGateway
 	attemptNum := 0
 
 	for _, target := range targets {
-		body = replaceModel(body, target.Route.Model.Name)
-		rawBody = replaceModel(rawBody, target.Route.Model.Name)
+		body = replaceModel(baseBody, target.Route.Model.Name)
+		rawBody = replaceModel(baseRawBody, target.Route.Model.Name)
+		segments, suppressed := a.resolvePromptSegments(r, groupID, target.Route.Model.ID, promptOverride)
+		body, rawBody = injectPromptSegments(body, rawBody, protocol, globalPrompt, suppressed, segments, cavemanPrompt)
+		if len(segments) > 0 {
+			rec.recordPromptRules(segments)
+		}
 		scheme := string(service.EffectiveScheme(target.Route.Provider, target.Route.Model))
 		upstreamPath := provider.UpstreamPathForScheme(scheme)
 		for _, pKey := range target.Keys {
@@ -265,6 +269,50 @@ func (a *API) gateway(w http.ResponseWriter, r *http.Request, protocol string) {
 		status = http.StatusServiceUnavailable
 	}
 	writeProtocolError(w, protocol, status, provider.StatusMessage(lastProxyErr), upstreamErrorType(protocol))
+}
+
+func (a *API) resolvePromptSegments(r *http.Request, groupID *int64, modelID int64, override string) ([]service.PromptSegment, bool) {
+	switch strings.ToLower(override) {
+	case "off", "false", "0":
+		return nil, true
+	}
+	if override != "" {
+		if seg, inherit, ok := a.Service.PromptRuleByName(r.Context(), override); ok {
+			return []service.PromptSegment{seg}, !inherit
+		}
+	}
+	return a.Service.ResolvePromptRules(r.Context(), groupID, modelID)
+}
+
+// injectPromptSegments rebuilds the request body from a pristine snapshot and
+// appends the global base prompt (unless suppressed), each matching rule, and
+// finally the caveman prompt so the style directive has the last word. The
+// native rawBody is only meaningful for the Anthropic inlet, matching the
+// proxy dispatch which ignores it otherwise.
+func injectPromptSegments(body, rawBody []byte, protocol, globalPrompt string, suppressed bool, segments []service.PromptSegment, cavemanPrompt string) ([]byte, []byte) {
+	inject := func(b []byte, text, label string) []byte {
+		if text == "" {
+			return b
+		}
+		if protocol == "anthropic" {
+			return provider.InjectAnthropicPromptLabeled(b, text, label)
+		}
+		return provider.InjectChatPromptLabeled(b, text, label)
+	}
+	apply := func(text, label string) {
+		body = inject(body, text, label)
+		if protocol == "anthropic" {
+			rawBody = inject(rawBody, text, label)
+		}
+	}
+	if !suppressed {
+		apply(globalPrompt, "")
+	}
+	for _, seg := range segments {
+		apply(seg.Text, seg.RuleName)
+	}
+	apply(cavemanPrompt, "")
+	return body, rawBody
 }
 
 func (a *API) proxyStream(ctx context.Context, client, scheme string, p service.Provider, secret, path string, body, rawBody []byte, w http.ResponseWriter, collector *provider.SSEUsageCollector) error {

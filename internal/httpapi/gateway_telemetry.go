@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -27,6 +28,28 @@ type gatewayTelemetry struct {
 	upstreamMS int64
 	ttftMS     *int64
 	served     *string
+	promptSig  string
+}
+
+func (g *gatewayTelemetry) recordPromptRules(segments []service.PromptSegment) {
+	if g == nil || g.id == "" || g.recorder == nil {
+		return
+	}
+	sig := ""
+	for _, seg := range segments {
+		sig += fmt.Sprintf("%d:%s;", seg.RuleID, seg.RuleName)
+	}
+	if sig == g.promptSig {
+		return
+	}
+	g.promptSig = sig
+	refs := make([]telemetry.PromptRuleRef, 0, len(segments))
+	for _, seg := range segments {
+		refs = append(refs, telemetry.PromptRuleRef{RuleID: seg.RuleID, RuleName: seg.RuleName})
+	}
+	if err := g.recorder.RecordPromptRules(g.id, refs); err != nil {
+		g.logFailure("record prompt rules", err)
+	}
 }
 
 func (g *gatewayTelemetry) recordGroupResolution(group service.Group, resolvedModel string) {
