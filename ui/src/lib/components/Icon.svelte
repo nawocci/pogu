@@ -5,9 +5,11 @@
     | 'groups'
     | 'monitoring'
     | 'configurations'
+    | 'prompts'
     | 'collapse'
     | 'expand'
     | 'chevron'
+    | 'check'
     | 'search'
     | 'sun'
     | 'moon'
@@ -25,9 +27,12 @@
     monitoring: '<path d="M2 10h4l2.5-6 3 12 2.5-6H18"/>',
     configurations:
       '<path d="M2 5h16M2 10h16M2 15h16"/><circle cx="7" cy="5" r="2.2"/><circle cx="13.5" cy="10" r="2.2"/><circle cx="9" cy="15" r="2.2"/>',
+    prompts:
+      '<path d="M4 3.5h12a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H8l-4 3v-3H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1Z"/><path d="M6.5 7h7M6.5 10h4.5"/>',
     collapse: '<path d="m8.5 4-5 6 5 6M15.5 4l-5 6 5 6"/>',
     expand: '<path d="m5.5 4 5 6-5 6M12.5 4l5 6-5 6"/>',
     chevron: '<path d="m5 8 5 5 5-5"/>',
+    check: '<path d="m4.5 10.5 3.5 3.5 7.5-8"/>',
     search: '<circle cx="9" cy="9" r="5.5"/><path d="m13.5 13.5 3 3"/>',
     sun: '<circle cx="10" cy="10" r="3.5"/><path d="M10 1.5v2M10 16.5v2M18.5 10h-2M3.5 10h-2M16 4l-1.4 1.4M5.4 14.6 4 16M16 16l-1.4-1.4M5.4 5.4 4 4"/>',
     moon: '<path d="M16.5 12.5A7 7 0 0 1 7.5 3.5a7 7 0 1 0 9 9Z"/>',
