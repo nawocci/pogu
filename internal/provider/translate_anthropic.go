@@ -148,6 +148,12 @@ func chatContentToAnthropic(content any) []any {
 						blocks = append(blocks, block)
 					}
 				}
+			case "file", "input_file":
+				if block := anthropicDocumentBlock(m); block != nil {
+					blocks = append(blocks, block)
+				}
+			case "input_audio":
+				// Anthropic Messages has no audio input blocks; drop rather than stringify.
 			default:
 				addText(stringOf(m["text"]))
 			}
@@ -183,6 +189,36 @@ func anthropicImageBlock(v any) map[string]any {
 	return map[string]any{"type": "image", "source": map[string]any{"type": "url", "url": url}}
 }
 
+func anthropicDocumentBlock(m map[string]any) map[string]any {
+	f, _ := m["file"].(map[string]any)
+	if f == nil {
+		f = m
+	}
+	if id := stringOf(f["file_id"]); id != "" {
+		return map[string]any{"type": "document", "source": map[string]any{"type": "file", "file_id": id}}
+	}
+	data := stringOf(f["file_data"])
+	if data == "" {
+		return nil
+	}
+	if rest, ok := strings.CutPrefix(data, "data:"); ok {
+		meta, payload, _ := strings.Cut(rest, ",")
+		media, _, _ := strings.Cut(meta, ";")
+		if payload == "" {
+			return nil
+		}
+		if media == "" {
+			media = "application/pdf"
+		}
+		return map[string]any{"type": "document", "source": map[string]any{
+			"type": "base64", "media_type": media, "data": payload,
+		}}
+	}
+	return map[string]any{"type": "document", "source": map[string]any{
+		"type": "base64", "media_type": "application/pdf", "data": data,
+	}}
+}
+
 func toolArguments(args string) any {
 	var v any
 	if args != "" {
@@ -199,25 +235,47 @@ func toolResultContent(content any) any {
 	if s, ok := content.(string); ok {
 		return s
 	}
-	if parts, ok := content.([]any); ok {
-		var texts []string
-		for _, p := range parts {
-			if m, ok := p.(map[string]any); ok {
-				if s := stringOf(m["text"]); s != "" {
-					texts = append(texts, s)
+	parts, ok := content.([]any)
+	if !ok {
+		if encoded, err := json.Marshal(content); err == nil {
+			return string(encoded)
+		}
+		return ""
+	}
+	var blocks []any
+	for _, p := range parts {
+		switch part := p.(type) {
+		case string:
+			if part != "" {
+				blocks = append(blocks, map[string]any{"type": "text", "text": part})
+			}
+		case map[string]any:
+			switch stringOf(part["type"]) {
+			case "text", "input_text", "output_text":
+				if s := stringOf(part["text"]); s != "" {
+					blocks = append(blocks, map[string]any{"type": "text", "text": s})
 				}
-			} else if s, ok := p.(string); ok && s != "" {
-				texts = append(texts, s)
+			case "image_url", "input_image":
+				url := part["image_url"]
+				if m, ok := url.(map[string]any); ok {
+					url = stringOf(m["url"])
+				}
+				if s, ok := url.(string); ok {
+					if block := anthropicImageBlock(s); block != nil {
+						blocks = append(blocks, block)
+					}
+				}
+			case "file", "input_file":
+				if block := anthropicDocumentBlock(part); block != nil {
+					blocks = append(blocks, block)
+				}
 			}
 		}
-		if len(texts) > 0 {
-			return strings.Join(texts, "\n")
-		}
 	}
-	if encoded, err := json.Marshal(content); err == nil {
-		return string(encoded)
+	if len(blocks) == 0 {
+		return ""
 	}
-	return ""
+	return blocks
 }
 
 func chatToolChoiceToAnthropic(choice any) any {
@@ -308,6 +366,10 @@ func TranslateAnthropicToChat(body []byte, stream bool) ([]byte, error) {
 				if part := chatImagePart(b["source"]); part != nil {
 					parts = append(parts, part)
 				}
+			case "document":
+				if part := chatFilePart(b); part != nil {
+					parts = append(parts, part)
+				}
 			case "tool_use":
 				input := b["input"]
 				args := "{}"
@@ -329,16 +391,22 @@ func TranslateAnthropicToChat(body []byte, stream bool) ([]byte, error) {
 					"function": map[string]any{"name": name, "arguments": args},
 				})
 			case "tool_result":
-				content := toolResultContent(b["content"])
-				str := stringOf(content)
-				if str == "" {
-					if encoded, err := json.Marshal(content); err == nil {
+				content := chatToolResultContent(b["content"])
+				str, isString := content.(string)
+				if isString && str == "" {
+					if encoded, err := json.Marshal(b["content"]); err == nil {
 						str = string(encoded)
 					}
 				}
-				toolMsgs = append(toolMsgs, map[string]any{
-					"role": "tool", "tool_call_id": stringOf(b["tool_use_id"]), "content": str,
-				})
+				toolMsg := map[string]any{
+					"role": "tool", "tool_call_id": stringOf(b["tool_use_id"]),
+				}
+				if isString {
+					toolMsg["content"] = str
+				} else {
+					toolMsg["content"] = content
+				}
+				toolMsgs = append(toolMsgs, toolMsg)
 			case "thinking", "redacted_thinking":
 				if s := stringOf(b["thinking"]); s != "" {
 					reasoning = append(reasoning, s)
@@ -475,6 +543,77 @@ func chatImagePart(source any) map[string]any {
 		}
 	}
 	return nil
+}
+
+func chatFilePart(b map[string]any) map[string]any {
+	src, _ := b["source"].(map[string]any)
+	if src == nil {
+		return nil
+	}
+	switch stringOf(src["type"]) {
+	case "base64":
+		media := stringOf(src["media_type"])
+		if media == "" {
+			media = "application/pdf"
+		}
+		return map[string]any{"type": "file", "file": map[string]any{
+			"file_data": "data:" + media + ";base64," + stringOf(src["data"]),
+			"filename":  "document." + fileExtension(media),
+		}}
+	case "file":
+		if id := stringOf(src["file_id"]); id != "" {
+			return map[string]any{"type": "file", "file": map[string]any{"file_id": id}}
+		}
+	}
+	return nil
+}
+
+func fileExtension(mediaType string) string {
+	switch mediaType {
+	case "application/pdf":
+		return "pdf"
+	case "text/plain":
+		return "txt"
+	default:
+		if _, ext, ok := strings.Cut(mediaType, "/"); ok && !strings.Contains(ext, "/") {
+			return ext
+		}
+		return "bin"
+	}
+}
+
+func chatToolResultContent(content any) any {
+	blocks := anthropicContentBlocks(content)
+	if blocks == nil {
+		return content
+	}
+	var texts []string
+	var media []any
+	for _, b := range blocks {
+		switch stringOf(b["type"]) {
+		case "text":
+			if s := stringOf(b["text"]); s != "" {
+				texts = append(texts, s)
+			}
+		case "image":
+			if part := chatImagePart(b["source"]); part != nil {
+				media = append(media, part)
+			}
+		case "document":
+			if part := chatFilePart(b); part != nil {
+				media = append(media, part)
+			}
+		}
+	}
+	if len(media) == 0 {
+		return strings.Join(texts, "\n")
+	}
+	parts := make([]any, 0, len(texts)+len(media))
+	for _, t := range texts {
+		parts = append(parts, map[string]any{"type": "text", "text": t})
+	}
+	parts = append(parts, media...)
+	return parts
 }
 
 func anthropicToolChoiceToChat(choice any) any {

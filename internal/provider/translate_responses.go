@@ -223,12 +223,42 @@ func contentParts(content any, kind string) []any {
 					}
 				}
 				parts = append(parts, map[string]any{"type": kind, "text": text})
+			case "input_audio", "input_file":
+				parts = append(parts, m)
+			case "file":
+				if converted := responsesFilePart(m); converted != nil {
+					parts = append(parts, converted)
+				}
 			}
 		}
 		return parts
 	default:
 		return nil
 	}
+}
+
+func responsesFilePart(m map[string]any) map[string]any {
+	f, _ := m["file"].(map[string]any)
+	if f == nil {
+		f = m
+	}
+	converted := map[string]any{"type": "input_file"}
+	hasData := false
+	if data := stringOf(f["file_data"]); data != "" {
+		converted["file_data"] = data
+		hasData = true
+	}
+	if id := stringOf(f["file_id"]); id != "" {
+		converted["file_id"] = id
+		hasData = true
+	}
+	if !hasData {
+		return nil
+	}
+	if name := stringOf(f["filename"]); name != "" {
+		converted["filename"] = name
+	}
+	return converted
 }
 
 func reasoningInputItem(msg map[string]any) map[string]any {
